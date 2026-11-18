@@ -24,6 +24,8 @@ REPO_TEXT_EXTENSIONS = {".md", ".py", ".html", ".css", ".js", ".mjs", ".json"}
 
 EXPECTED_SCRIPTS = {
     "audio_mix.py",
+    "auto_cue.py",
+    "build_sfx_pack.py",
     "extract_full_motion.py",
     "kinearc_cli.py",
     "kinearc_ui.py",

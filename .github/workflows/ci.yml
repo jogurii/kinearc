@@ -82,7 +82,7 @@ jobs:
       - name: Syntax check JavaScript & ESM engine modules
         shell: bash
         run: |
-          for f in scripts/ui/*.js engine/*.mjs examples/kinearc-promo-3d/scenes/*.js examples/kinearc-tutorial/scenes/*.js; do
+          for f in scripts/ui/*.js engine/*.mjs assets/craft/*.js examples/kinearc-promo-3d/scenes/*.js examples/kinearc-tutorial/scenes/*.js; do
             node --check "$f"
           done
 

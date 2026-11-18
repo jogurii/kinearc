@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>KineArc Tutorial — 04 Compare & Save in 4K</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #f6f7fb;
+    }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+import {
+  clamp01,
+  easeInOutCubic,
+  easeOutCubic,
+  lerp,
+  smoothstep,
+  springProgress,
+  createCrystalMesh,
+  createTorusKnotMesh,
+  roundRectPath,
+  drawCraftBackdrop,
+  drawBlurRevealText,
+  drawPearlCard,
+  drawPortalFlash,
+  drawTactileCursor,
+  drawFilmGrain,
+  registerScene,
+} from "./kinearc-gl3d.js";
+
+const TOTAL = 4.5;
+const SANS_FONT = '"Inter", "SF Pro Display", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif';
+
+// @cue 0.15 swish volume=0.72
+// @cue 0.85 scrub duration=1.10 ticks=6 volume=0.52
+// @cue 2.55 latch volume=0.82
+// @cue 3.45 bloom volume=0.80
+// @cue 3.85 chord volume=0.84
+
+const crystalMesh = createCrystalMesh(8, 0.82, 1.88, 0.24);
+const knotMesh = createTorusKnotMesh(1.16, 0.135, 2, 3, 140, 14);
+
+function drawStepPill(ctx, cx, y, label, progress, alpha = 1) {
+  const p = clamp01(progress) * alpha;
+  if (p <= 0.001) return;
+  ctx.save();
+  ctx.globalAlpha = p;
+  ctx.translate(cx, y + (1 - easeOutCubic(clamp01(progress))) * 10);
+  ctx.font = `700 15px ${SANS_FONT}`;
+  const tw = ctx.measureText(label).width;
+  const w = tw + 38;
+  const h = 36;
+  roundRectPath(ctx, -w * 0.5, -h * 0.5, w, h, h * 0.5);
+  ctx.fillStyle = "rgba(124, 58, 237, 0.10)";
+  ctx.fill();
+  ctx.lineWidth = 1.25;
+  ctx.strokeStyle = "rgba(124, 58, 237, 0.28)";
+  ctx.stroke();
+
+  ctx.fillStyle = "#6d28d9";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, 0, 1);
+  ctx.restore();
+}
+
+function drawBeforeArtwork(ctx, cx, cy, t) {
+  // Clean flat minimal reference silhouette on soft pearl-slate paper
+  const bob = Math.abs(Math.sin(t * Math.PI * 1.35)) * 28 - 8;
+  ctx.save();
+  ctx.translate(cx, cy - bob);
+
+  // Soft reference motion arc
+  ctx.strokeStyle = "rgba(100, 116, 139, 0.26)";
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([8, 8]);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 148, 62, -0.25, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Minimal flat geometric diamond silhouette
+  ctx.beginPath();
+  ctx.moveTo(0, -104);
+  ctx.lineTo(74, 0);
+  ctx.lineTo(0, 104);
+  ctx.lineTo(-74, 0);
+  ctx.closePath();
+  ctx.fillStyle = "rgba(148, 163, 184, 0.28)";
+  ctx.fill();
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = "rgba(71, 85, 105, 0.55)";
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(0, -104);
+  ctx.lineTo(0, 104);
+  ctx.moveTo(-74, 0);
+  ctx.lineTo(74, 0);
+  ctx.strokeStyle = "rgba(71, 85, 105, 0.25)";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawBadge(ctx, x, y, text, dark = false) {
+  ctx.save();
+  ctx.font = `600 15px ${SANS_FONT}`;
+  const tw = ctx.measureText(text).width;
+  const w = tw + 30;
+  roundRectPath(ctx, x, y, w, 34, 17);
+  ctx.fillStyle = dark ? "rgba(255, 255, 255, 0.12)" : "rgba(24, 24, 27, 0.08)";
+  ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = dark ? "rgba(255, 255, 255, 0.16)" : "rgba(24, 24, 27, 0.10)";
+  ctx.stroke();
+  ctx.fillStyle = dark ? "rgba(255, 255, 255, 0.92)" : "#27272a";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, x + 15, y + 17.5);
+  ctx.restore();
+}
+
+function drawExportButton(ctx, cx, cy, t, alpha) {
+  if (alpha <= 0.01) return;
+  const w = 328;
+  const h = 68;
+  const clickBop = t >= 2.55
+    ? 1 + 0.055 * Math.sin(clamp01((t - 2.55) / 0.28) * Math.PI) * Math.exp(-(t - 2.55) * 3.5)
+    : 1;
+  const pressSquish = t >= 2.51 && t < 2.58 ? 0.96 : 1;
+  const sc = clickBop * pressSquish;
+  const sweepP = smoothstep(2.65, 3.35, t);
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(cx, cy);
+  ctx.scale(sc, sc);
+
+  ctx.shadowColor = sweepP > 0.05 ? "rgba(124, 58, 237, 0.34)" : "rgba(24, 24, 27, 0.24)";
+  ctx.shadowBlur = sweepP > 0.05 ? 32 : 24;
+  ctx.shadowOffsetY = 10;
+  roundRectPath(ctx, -w * 0.5, -h * 0.5, w, h, 34);
+  ctx.fillStyle = "#18181b";
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+
+  // Progress sheen sweeping cleanly across button from 2.65..3.35s (soft feathered edge, zero harsh line)
+  if (sweepP > 0.005) {
+    ctx.save();
+    roundRectPath(ctx, -w * 0.5, -h * 0.5, w, h, 34);
+    ctx.clip();
+
+    const pGrad = ctx.createLinearGradient(-w * 0.5, 0, w * 0.5, 0);
+    const edge = clamp01(sweepP);
+    const fadeStart = Math.max(0, edge - 0.14);
+    pGrad.addColorStop(0, "rgba(124, 58, 237, 0.78)");
+    pGrad.addColorStop(Math.max(0.01, fadeStart), "rgba(139, 92, 246, 0.72)");
+    pGrad.addColorStop(edge, "rgba(167, 139, 250, 0.18)");
+    if (edge < 0.999) {
+      pGrad.addColorStop(Math.min(1, edge + 0.02), "rgba(167, 139, 250, 0)");
+    }
+    ctx.fillStyle = pGrad;
+    ctx.fillRect(-w * 0.5, -h * 0.5, w, h);
+
+    // Diagonal specular light sweep across the dark pill
+    const beamX = lerp(-w * 0.5 - 60, w * 0.5 + 60, sweepP);
+    const beam = ctx.createLinearGradient(beamX - 55, -20, beamX + 55, 20);
+    beam.addColorStop(0, "rgba(255, 255, 255, 0)");
+    beam.addColorStop(0.5, "rgba(255, 255, 255, 0.34)");
+    beam.addColorStop(1, "rgba(255, 255, 255, 0)");
+    ctx.fillStyle = beam;
+    ctx.fillRect(-w * 0.5, -h * 0.5, w, h);
+    ctx.restore();
+  }
+
+  // Rim border
+  roundRectPath(ctx, -w * 0.5, -h * 0.5, w, h, 34);
+  ctx.lineWidth = 1.4;
+  ctx.strokeStyle = sweepP > 0.05 ? "rgba(167, 139, 250, 0.65)" : "rgba(255, 255, 255, 0.14)";
+  ctx.stroke();
+
+  // Button label
+  ctx.font = `700 22px ${SANS_FONT}`;
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(sweepP > 0.05 ? "Saving crisp 4K..." : "Export 4K Video", 0, 1);
+
+  ctx.restore();
+}
+
+registerScene({
+  width: 1920,
+  height: 1080,
+  fps: 60,
+  totalDuration: TOTAL,
+  onFrame({ ctx, gl, W, H, t }) {
+    drawCraftBackdrop(ctx, W, H, t, {
+      theme: "pearl",
+      warmPool: "rgba(167, 139, 250, 0.14)",
+      coolPool: "rgba(56, 189, 248, 0.11)",
+      showCrosshairs: false,
+    });
+
+    const cx = W * 0.5;
+    const uiFadeOut = 1 - smoothstep(3.45, 3.88, t);
+
+    // 1. Header
+    if (uiFadeOut > 0.01) {
+      drawStepPill(ctx, cx, 102, "STEP 04", springProgress(t, { delay: 0.02, duration: 0.50 }), uiFadeOut);
+      drawBlurRevealText(ctx, "Compare & save in crisp 4K.", cx, 206, smoothstep(0.08, 0.72, t), {
+        font: `800 74px ${SANS_FONT}`,
+        color: "#18181b",
+        maxBlur: 16,
+        liftPx: 18,
+        alpha: uiFadeOut,
+      });
+    }
+
+    // 2. Center Glass Preview Card (1100x520) with Before / After Wipe
+    const cardW = 1100;
+    const cardH = 520;
+    const cardX = cx - cardW * 0.5;
+    const cardY = 256;
+    const cardEnter = springProgress(t, { delay: 0.14, duration: 0.62, damping: 16, stiffness: 175 });
+    const cardScale = lerp(0.94, 1.0, cardEnter);
+
+    // Wipe handle sweeps left across card during 0.85..2.05s to reveal transformed 3D glass look
+    const wipeSweep = easeInOutCubic(smoothstep(0.85, 2.05, t));
+    const wipeFrac = lerp(0.76, 0.16, wipeSweep);
+    const wipeX = cardX + cardW * wipeFrac;
+    const isGrabbing = t >= 0.80 && t <= 2.10;
+
+    if (uiFadeOut > 0.01) {
+      ctx.save();
+      ctx.globalAlpha = clamp01(cardEnter * 1.15) * uiFadeOut;
+      ctx.translate(cx, cardY + cardH * 0.5);
+      ctx.scale(cardScale, cardScale);
+      ctx.translate(-cx, -(cardY + cardH * 0.5));
+
+      drawPearlCard(ctx, cardX, cardY, cardW, cardH, {
+        radius: 30,
+        bg: "rgba(255, 255, 255, 0.96)",
+        border: "rgba(109, 93, 211, 0.16)",
+        shadowBlur: 44,
+      });
+
+      // Clip inside preview viewport (with 12px porcelain frame padding)
+      const inX = cardX + 12;
+      const inY = cardY + 12;
+      const inW = cardW - 24;
+      const inH = cardH - 24;
+      const inCx = inX + inW * 0.5;
+      const inCy = inY + inH * 0.5;
+
+      ctx.save();
+      roundRectPath(ctx, inX, inY, inW, inH, 22);
+      ctx.clip();
+
+      // BEFORE SIDE (Left of wipeX): Plain light reference silhouette
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(inX, inY, Math.max(0, wipeX - inX), inH);
+      ctx.clip();
+
+      const beforeBg = ctx.createLinearGradient(inX, inY, inX + inW, inY + inH);
+      beforeBg.addColorStop(0, "#f1f2f8");
+      beforeBg.addColorStop(1, "#e6e8f2");
+      ctx.fillStyle = beforeBg;
+      ctx.fillRect(inX, inY, inW, inH);
+
+      drawBeforeArtwork(ctx, inCx, inCy, t);
+      if (wipeX - inX > 140) {
+        drawBadge(ctx, inX + 24, inY + 22, "Before", false);
+      }
+      ctx.restore();
+
+      // AFTER SIDE (Right of wipeX): Velvet Midnight Glass + WebGL2 PBR 3D Sculpture
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(wipeX, inY, Math.max(0, inX + inW - wipeX), inH);
+      ctx.clip();
+
+      const afterBg = ctx.createLinearGradient(inX, inY, inX + inW, inY + inH);
+      afterBg.addColorStop(0, "#120f26");
+      afterBg.addColorStop(1, "#070612");
+      ctx.fillStyle = afterBg;
+      ctx.fillRect(inX, inY, inW, inH);
+
+      const glowPool = ctx.createRadialGradient(inCx, inCy - 20, 20, inCx, inCy - 20, 380);
+      glowPool.addColorStop(0, "rgba(167, 139, 250, 0.28)");
+      glowPool.addColorStop(0.6, "rgba(251, 113, 133, 0.10)");
+      glowPool.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = glowPool;
+      ctx.fillRect(inX, inY, inW, inH);
+
+      // Floor reflection band
+      const fY = inY + inH * 0.74;
+      const fGrad = ctx.createLinearGradient(inX, fY, inX, inY + inH);
+      fGrad.addColorStop(0, "rgba(255, 255, 255, 0.04)");
+      fGrad.addColorStop(1, "rgba(4, 3, 10, 0.72)");
+      ctx.fillStyle = fGrad;
+      ctx.fillRect(inX, fY, inW, inY + inH - fY);
+
+      if (gl) {
+        const bounceY = Math.abs(Math.sin(t * Math.PI * 1.35)) * 0.32 - 0.12;
+        gl.render({
+          cameraPos: [0, 0.82, 7.6],
+          cameraTarget: [0, -0.34, 0],
+          fovDeg: 38,
+          keyColor: [0.72, 0.50, 0.44],
+          fillColor: [0.52, 0.34, 0.82],
+          floorY: -1.35,
+          reflectionAlpha: 0.24,
+          objects: [
+            {
+              mesh: crystalMesh,
+              pos: [0, bounceY, 0],
+              rot: [0.16, t * 1.05, 0.08 * Math.sin(t * 1.4)],
+              scale: 0.72,
+              color: [0.90, 0.26, 0.24],
+              emissive: [0.04, 0.01, 0.014],
+              roughness: 0.36,
+              metallic: 0.76,
+            },
+            {
+              mesh: knotMesh,
+              pos: [0, bounceY, 0],
+              rot: [0.55 + t * 0.42, t * 0.78, 0.24],
+              scale: 0.65,
+              color: [0.80, 0.50, 0.42],
+              emissive: [0.015, 0.008, 0.015],
+              roughness: 0.34,
+              metallic: 0.80,
+            },
+          ],
+        });
+        ctx.drawImage(gl.canvas, inCx - W * 0.5, inCy - H * 0.5, W, H);
+      }
+
+      drawBadge(ctx, inX + inW - 144, inY + 22, "3D Look", true);
+      ctx.restore();
+
+      // Interactive vertical wipe divider & handle
+      ctx.save();
+      ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
+      ctx.shadowBlur = 10;
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(wipeX, inY);
+      ctx.lineTo(wipeX, inY + inH);
+      ctx.stroke();
+      ctx.restore();
+
+      // Circular grab handle on divider
+      const handleScale = isGrabbing ? 1.10 : 1.0;
+      ctx.save();
+      ctx.translate(wipeX, inCy);
+      ctx.scale(handleScale, handleScale);
+      ctx.shadowColor = isGrabbing ? "rgba(124, 58, 237, 0.45)" : "rgba(0, 0, 0, 0.28)";
+      ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.arc(0, 0, 24, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffffff";
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = isGrabbing ? 2.4 : 1.5;
+      ctx.strokeStyle = isGrabbing ? "#7c3aed" : "rgba(24, 24, 27, 0.18)";
+      ctx.stroke();
+
+      // Clean < > arrows
+      ctx.strokeStyle = isGrabbing ? "#7c3aed" : "#18181b";
+      ctx.lineWidth = 2.2;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(-6, -5);
+      ctx.lineTo(-11, 0);
+      ctx.lineTo(-6, 5);
+      ctx.moveTo(6, -5);
+      ctx.lineTo(11, 0);
+      ctx.lineTo(6, 5);
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.restore(); // end preview clip
+      ctx.restore(); // end card transform
+
+      // 3. Bold Dark Button Below Card
+      drawExportButton(ctx, cx, 858, t, clamp01(springProgress(t, { delay: 0.24 })) * uiFadeOut);
+    }
+
+    // 4. Mild Radial Portal Flash Glow & Emerald Checkmark + Closing Summary (3.45..4.50s)
+    if (t >= 3.45) {
+      const flashP = smoothstep(3.45, 4.18, t);
+      ctx.save();
+      ctx.globalAlpha = 0.72 * (1 - smoothstep(4.05, 4.45, t));
+      drawPortalFlash(ctx, W, H, flashP, {
+        cx,
+        cy: 510,
+        color: "#f6f7fb",
+        coreColor: "#ffffff",
+        glowColor: "rgba(167, 139, 250, 0.42)",
+      });
+      ctx.restore();
+
+      // Centered minimal emerald checkmark & crisp closing summary
+      const finPop = springProgress(t, { delay: 3.55, duration: 0.55, damping: 13, stiffness: 210 });
+      const finY = 472;
+
+      // Soft emerald halo ring
+      const ringP = smoothstep(3.60, 4.30, t);
+      if (ringP > 0 && ringP < 1) {
+        ctx.save();
+        ctx.strokeStyle = "#10b981";
+        ctx.globalAlpha = (1 - ringP) * 0.42;
+        ctx.lineWidth = 2.8 * (1 - ringP * 0.5);
+        ctx.beginPath();
+        ctx.arc(cx, finY, lerp(52, 165, easeOutCubic(ringP)), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      ctx.save();
+      ctx.translate(cx, finY);
+      ctx.scale(finPop, finPop);
+      ctx.shadowColor = "rgba(16, 185, 129, 0.26)";
+      ctx.shadowBlur = 32;
+      ctx.shadowOffsetY = 10;
+      ctx.beginPath();
+      ctx.arc(0, 0, 54, 0, Math.PI * 2);
+      ctx.fillStyle = "#10b981";
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+
+      // Animated crisp checkmark
+      const tickP = smoothstep(3.62, 3.92, t);
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 7;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(-21, 2);
+      if (tickP < 0.45) {
+        const u = tickP / 0.45;
+        ctx.lineTo(lerp(-21, -6, u), lerp(2, 17, u));
+      } else {
+        const u = (tickP - 0.45) / 0.55;
+        ctx.lineTo(-6, 17);
+        ctx.lineTo(lerp(-6, 23, u), lerp(17, -14, u));
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      drawBlurRevealText(ctx, "Done. Ready to share at 60fps.", cx, 616, smoothstep(3.68, 4.18, t), {
+        font: `800 58px ${SANS_FONT}`,
+        color: "#18181b",
+        maxBlur: 14,
+        liftPx: 16,
+      });
+    }
+
+    // 5. Tactile Cursor sweeping wipe handle (0.80..2.10s) then clicking Export (2.55s)
+    const handleStartX = cardX + cardW * 0.76;
+    const handleEndX = cardX + cardW * 0.16;
+    const handleY = cardY + cardH * 0.5;
+    const btnPos = [cx, 858];
+
+    let curX = handleStartX + 120;
+    let curY = handleY + 90;
+    let curAlpha = 0;
+
+    if (t >= 0.35 && t < 0.85) {
+      const p = easeOutCubic(smoothstep(0.35, 0.80, t));
+      curX = lerp(handleStartX + 140, handleStartX, p);
+      curY = lerp(handleY + 110, handleY, p);
+      curAlpha = smoothstep(0.35, 0.58, t);
+    } else if (t >= 0.85 && t <= 2.10) {
+      curX = wipeX;
+      curY = handleY;
+      curAlpha = 1;
+    } else if (t > 2.10 && t < 2.55) {
+      const p = easeInOutCubic(smoothstep(2.12, 2.50, t));
+      const arc = Math.sin(p * Math.PI) * 35;
+      curX = lerp(handleEndX, btnPos[0], p);
+      curY = lerp(handleY, btnPos[1], p) + arc;
+      curAlpha = 1;
+    } else if (t >= 2.55) {
+      const p = easeOutCubic(smoothstep(2.75, 3.25, t));
+      curX = lerp(btnPos[0], btnPos[0] + 180, p);
+      curY = lerp(btnPos[1], btnPos[1] + 90, p);
+      curAlpha = (1 - smoothstep(3.10, 3.45, t)) * uiFadeOut;
+    }
+
+    if (curAlpha > 0.01) {
+      const pressed = isGrabbing || (t >= 2.51 && t <= 2.62);
+      let clickProg = 0;
+      if (t >= 0.82 && t < 1.25) clickProg = smoothstep(0.82, 1.22, t);
+      else if (t >= 2.55 && t < 3.05) clickProg = smoothstep(2.55, 3.02, t);
+
+      ctx.save();
+      ctx.globalAlpha = curAlpha;
+      drawTactileCursor(ctx, curX, curY, {
+        pressed,
+        clickProgress: clickProg,
+        color: "#ffffff",
+        accent: "#7c3aed",
+      });
+      ctx.restore();
+    }
+
+    drawFilmGrain(ctx, W, H, t, 0.020);
+  },
+});
+</script>
+</body>
+</html>

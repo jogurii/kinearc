@@ -358,7 +358,7 @@ def test_render_stills_invocation_passthrough_and_reference_doc(
         check=False,
     )
     assert proc_help.returncode == 0
-    for sub in ("doctor", "render", "stills", "extract", "track", "measure", "verify", "ui", "audio"):
+    for sub in ("doctor", "render", "stills", "extract", "track", "measure", "verify", "ui", "audio", "autocue"):
         assert sub in proc_help.stdout
 
     proc_human_doc = subprocess.run(

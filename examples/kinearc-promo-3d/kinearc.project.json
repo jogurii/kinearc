@@ -1,20 +1,18 @@
 {
-  "name": "kinearc-promo-3d",
   "fps": 60,
   "width": 1920,
   "height": 1080,
   "scenes": [
-    { "path": "scenes/01_hook_3d_prism.html", "duration": 3.0 },
-    { "path": "scenes/02_cv_deconstruct.html", "duration": 3.0 },
-    { "path": "scenes/03_3d_stage_split.html", "duration": 3.5 },
-    { "path": "scenes/04_annotate_range.html", "duration": 3.0 },
-    { "path": "scenes/05_audio_4k_engine.html", "duration": 3.0 },
-    { "path": "scenes/06_outro_cta.html", "duration": 2.5 }
+    { "path": "scenes/01_hook_3d_prism.html", "duration": 2.4 },
+    { "path": "scenes/02_pill_clone.html", "duration": 3.0 },
+    { "path": "scenes/03_remix_grid.html", "duration": 2.8 },
+    { "path": "scenes/04_dark_3d_portal.html", "duration": 2.4 },
+    { "path": "scenes/05_outro_cta.html", "duration": 2.4 }
   ],
   "audio": {
     "bgm": "audio/bgm.wav",
+    "bgm_vol": 0.16,
     "sfx": "audio/cues.json",
-    "bgm_vol": 0.48,
-    "fade_out": 1.4
+    "fade_out": 1.2
   }
 }

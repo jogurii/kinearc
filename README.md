@@ -73,10 +73,13 @@ kinearc/
 │   ├── measure_shapes_colors.py      # Radial circle/ring profiler, card bop & HEX palette sampler
 │   ├── verify_motion_diff.py         # Closed-loop MAE, worst_frames, Flow & --check-loop audit
 │   ├── audio_mix.py                  # Auto-ducking BGM mixer, SFX sync & silence pause-cutter
+│   ├── auto_cue.py                   # Automated tactile SFX cue generator (`kinearc_cli.py autocue`)
+│   ├── build_sfx_pack.py             # Acoustic-modeled tactile foley & groove BGM generator
 │   ├── review_viewer.py              # Backward-compatible CLI/module wrapper for kinearc_ui.py
 │   └── ui/                           # Zero-build browser ES modules (index.html, styles.css, *.js)
+├── assets/                           # Bundled tactile SFX pack (`sfx/`) & WebGL2 craft runtime (`craft/`)
 ├── examples/                         # Offline WebGL2 3D promo & interactive tutorial showcase projects
-├── references/                       # Engine specs & authoring playbooks
+├── references/                       # Engine specs, Anti-AI-Slop craft playbook (`references/anti-ai-slop.md`) & guides
 ├── tests/                            # Pytest unit, API, engine E2E & headless UI test suites
 ├── .github/workflows/ci.yml          # Windows & Ubuntu CI verification workflow
 ├── CHANGELOG.md                      # Version release notes (v1.0 -> v3.0)
@@ -128,10 +131,12 @@ python scripts/kinearc_cli.py doctor --strict
    python scripts/kinearc_cli.py ui --project examples/kinearc-promo-3d/kinearc.project.json
    ```
    * Press **`Space`** to play/pause, **`←` / `→`** (`Shift` for ±10f) to step frames, **`I` / `O`** or **`Shift+Drag`** on the timeline track to mark clip ranges, **left-click / drag** on the stage to pin a point/box, **right-click** any pin/box/range bar to delete it, or press **Export 1080p/4K 60fps** inside **Audio & Out**.
-2. **Capture stills or render 4K directly from the CLI:**
+2. **Auto-generate breathable tactile SFX cues, capture stills, or render widescreen/vertical 4K from the CLI:**
    ```bash
-   python scripts/kinearc_cli.py stills --scene examples/kinearc-promo-3d/scenes/01_hook_3d_prism.html --out_dir out/stills --times 0,1.2,2.4 --scale 2
+   python scripts/kinearc_cli.py autocue --project examples/kinearc-promo-3d/kinearc.project.json --out examples/kinearc-promo-3d/audio/cues.json
+   python scripts/kinearc_cli.py stills --scene examples/kinearc-promo-3d/scenes/01_hook_3d_prism.html --out_dir out/stills --times 0.4,1.2,2.0 --scale 2
    python scripts/kinearc_cli.py render --project examples/kinearc-promo-3d/kinearc.project.json --out out/promo_4k.mp4 --scale 2 --json-progress
+   python scripts/kinearc_cli.py render --project examples/kinearc-promo-3d/kinearc.vertical.project.json --out out/promo_vertical.mp4 --json-progress
    ```
 3. **Clone a reference video 1:1 with Computer Vision:**
    ```bash
@@ -170,6 +175,7 @@ See [references/kinearc-engine.md](references/kinearc-engine.md) for the full `k
 | Topic | Document |
 | :--- | :--- |
 | Main Agent Orchestrator & Mode Routing (`v3.0`) | [SKILL.md](SKILL.md) |
+| Anti-AI-Slop Visual & Tactile Audio Craft Directive | [references/anti-ai-slop.md](references/anti-ai-slop.md) |
 | Native WebCodecs/CDP 4K Engine & `kinearc.project.json` Contract | [references/kinearc-engine.md](references/kinearc-engine.md) |
 | 5-Stage 1:1 Video Cloning & Verification Protocol | [references/video-cloning.md](references/video-cloning.md) |
 | Interactive Web Motion (`ScrollTrigger`, WAAPI & `seek(t)`) | [references/web-interactive.md](references/web-interactive.md) |

@@ -20,7 +20,7 @@ import time
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent
-INSTALL_ITEMS = ("SKILL.md", "README.md", "LICENSE", "engine", "scripts", "references")
+INSTALL_ITEMS = ("SKILL.md", "README.md", "LICENSE", "engine", "scripts", "references", "assets")
 IGNORE_NAMES = {"__pycache__", ".pytest_cache", "node_modules", ".kinearc_analysis", ".git"}
 IGNORE_SUFFIXES = {".pyc", ".pyo"}
 

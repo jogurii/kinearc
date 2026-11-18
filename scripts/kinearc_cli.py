@@ -6,7 +6,7 @@ Provides:
   - `validate_manifest`: Pre-render validation & even-dimension scaling for `kinearc.project.json` or `.html` scenes.
   - `find_browser_executable`: Cross-platform Chrome / Edge / Chromium binary discovery.
   - `run_doctor`: Environment probe for Python (cv2/numpy), FFmpeg/FFprobe, Node.js 24+, Browser, and `engine/render.mjs`.
-  - Subcommands: `doctor`, `render`, `stills`, plus direct passthrough to `extract`, `track`, `measure`, `verify`, `ui`, `audio`.
+  - Subcommands: `doctor`, `render`, `stills`, `autocue`, plus direct passthrough to `extract`, `track`, `measure`, `verify`, `ui`, `audio`.
 """
 
 from __future__ import annotations
@@ -38,6 +38,7 @@ PASSTHROUGH_SCRIPTS: dict[str, tuple[str, str, str]] = {
     "verify": ("verify_motion_diff.py", "verify_motion_diff", "Verify motion MAE/PSNR, jitter, blur, and loop seam"),
     "ui": ("kinearc_ui.py", "kinearc_ui", "Launch the interactive dual-mode kinearc workbench UI"),
     "audio": ("audio_mix.py", "audio_mix", "Auto-ducking audio mixer & silence pause cutter"),
+    "autocue": ("auto_cue.py", "auto_cue", "Auto-generate micro-timed tactile SFX cues.json from scenes or project"),
 }
 
 

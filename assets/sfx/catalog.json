@@ -1,0 +1,136 @@
+{
+  "version": "3.0",
+  "bgm_default": "sfx/bgm_groove.wav",
+  "events": {
+    "key": {
+      "files": [
+        "sfx/key_clack_01.wav",
+        "sfx/key_clack_02.wav",
+        "sfx/key_clack_03.wav"
+      ],
+      "default_volume": 0.66,
+      "preroll_sec": 0.0,
+      "description": "Tactile mechanical switch keystrokes with 3 pitch variations"
+    },
+    "tap": {
+      "files": [
+        "sfx/ui_tap.wav"
+      ],
+      "default_volume": 0.7,
+      "preroll_sec": 0.0,
+      "description": "Crisp capacitive haptic micro-tap for cursor hovers and button clicks"
+    },
+    "click": {
+      "files": [
+        "sfx/ui_tap.wav"
+      ],
+      "default_volume": 0.72,
+      "preroll_sec": 0.0,
+      "description": "Alias for tactile UI click/tap"
+    },
+    "latch": {
+      "files": [
+        "sfx/switch_latch.wav"
+      ],
+      "default_volume": 0.8,
+      "preroll_sec": 0.0,
+      "description": "Dual-transient magnetic snap for toggles, locks, and state transitions"
+    },
+    "lock": {
+      "files": [
+        "sfx/switch_latch.wav"
+      ],
+      "default_volume": 0.8,
+      "preroll_sec": 0.0,
+      "description": "Alias for magnetic latch lock"
+    },
+    "tick": {
+      "files": [
+        "sfx/scrubber_tick.wav"
+      ],
+      "default_volume": 0.56,
+      "preroll_sec": 0.0,
+      "description": "Precision rotary detent micro-tick for timeline scrubbing and counters"
+    },
+    "swish": {
+      "files": [
+        "sfx/air_swish_fast.wav"
+      ],
+      "default_volume": 0.72,
+      "preroll_sec": 0.03,
+      "description": "Fast bandpass-swept foley swish for card entrances and panel slides"
+    },
+    "whoosh": {
+      "files": [
+        "sfx/air_whoosh_deep.wav"
+      ],
+      "default_volume": 0.76,
+      "preroll_sec": 0.035,
+      "description": "Warm low-mid doppler transition whoosh for camera shifts and cuts"
+    },
+    "sub_impact": {
+      "files": [
+        "sfx/sub_impact.wav"
+      ],
+      "default_volume": 0.84,
+      "preroll_sec": 0.01,
+      "description": "Warm 808-style sub-bass thud for heavy landings and hero reveals"
+    },
+    "ping": {
+      "files": [
+        "sfx/glass_ping.wav"
+      ],
+      "default_volume": 0.74,
+      "preroll_sec": 0.0,
+      "description": "Harmonic crystal chime for verification badges and completed actions"
+    },
+    "riser": {
+      "files": [
+        "sfx/warm_riser.wav"
+      ],
+      "default_volume": 0.68,
+      "preroll_sec": 0.0,
+      "description": "Warm filtered tension swell leading into a major transition or export"
+    },
+    "chord": {
+      "files": [
+        "sfx/analog_chord.wav"
+      ],
+      "default_volume": 0.88,
+      "preroll_sec": 0.0,
+      "description": "Lush detuned minor-9th chord hit for hero reveals and finale resolution"
+    },
+    "swell": {
+      "files": [
+        "sfx/harmonic_swell.wav"
+      ],
+      "default_volume": 0.78,
+      "preroll_sec": 0.04,
+      "description": "Airy E4+E5 harmonic reveal swell for rack-focus locks and card expansions"
+    },
+    "glint": {
+      "files": [
+        "sfx/crystal_glint.wav"
+      ],
+      "default_volume": 0.72,
+      "preroll_sec": 0.0,
+      "description": "Silky glass sparkle & high air tap for tile bops and pill stretches"
+    },
+    "bloom": {
+      "files": [
+        "sfx/bloom_chime.wav"
+      ],
+      "default_volume": 0.82,
+      "preroll_sec": 0.02,
+      "description": "Radiant C6+E5 harmonic bloom burst for portal resolution transitions"
+    },
+    "portal": {
+      "files": [
+        "sfx/portal_drop.wav"
+      ],
+      "default_volume": 0.86,
+      "preroll_sec": 0.015,
+      "description": "Velvety Light-to-Dark sub-bass sink with warm air sweep"
+    }
+  }
+}

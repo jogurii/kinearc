@@ -1,8 +1,9 @@
 /**
- * kinearc-gl3d.js — Zero-Dependency Deterministic WebGL2 3D + 2D HUD Runtime
+ * kinearc-gl3d.js — Zero-Dependency Deterministic WebGL2 PBR + High-Craft 2D Runtime
  * Supports ?t=<sec>, ?scale=<S> (1080p -> 4K 3840x2160), window.kinearc,
- * procedural 3D PBR meshes (prism, torus, trefoil knot, slab, waveform bars),
- * perspective camera, spring easing, and editorial glassmorphic HUD helpers.
+ * 3-point tungsten/titanium PBR lighting with planar floor reflection,
+ * machined anodized panels, tactile cursor choreography, kinetic typography,
+ * and deterministic 35mm film grain.
  */
 
 export function clamp(v, lo, hi) {
@@ -158,11 +159,9 @@ export function createCrystalMesh(sides = 8, radius = 1.0, height = 2.15, bevel 
     const bot1 = [Math.cos(a1) * radius * 0.62, -shoulderY, Math.sin(a1) * radius * 0.62];
     const apex = [0, halfH, 0];
     const nadir = [0, -halfH, 0];
-    // Upper bevel + spire
     pushTri(c0, c1, top1);
     pushTri(c0, top1, top0);
     pushTri(top0, top1, apex);
-    // Lower bevel + nadir
     pushTri(c1, c0, bot0);
     pushTri(c1, bot0, bot1);
     pushTri(bot1, bot0, nadir);
@@ -173,17 +172,90 @@ export function createCrystalMesh(sides = 8, radius = 1.0, height = 2.15, bevel 
 export function createBoxMesh(w = 1, h = 1, d = 1) {
   const hw = w * 0.5, hh = h * 0.5, hd = d * 0.5;
   const faces = [
-    [[hw, -hh, hd], [hw, hh, hd], [-hw, hh, hd], [-hw, -hh, hd]],     // +Z
-    [[-hw, -hh, -hd], [-hw, hh, -hd], [hw, hh, -hd], [hw, -hh, -hd]], // -Z
-    [[-hw, hh, hd], [hw, hh, hd], [hw, hh, -hd], [-hw, hh, -hd]],     // +Y
-    [[-hw, -hh, -hd], [hw, -hh, -hd], [hw, -hh, hd], [-hw, -hh, hd]], // -Y
-    [[hw, -hh, -hd], [hw, hh, -hd], [hw, hh, hd], [hw, -hh, hd]],     // +X
-    [[-hw, -hh, hd], [-hw, hh, hd], [-hw, hh, -hd], [-hw, -hh, -hd]], // -X
+    [[hw, -hh, hd], [hw, hh, hd], [-hw, hh, hd], [-hw, -hh, hd]],
+    [[-hw, -hh, -hd], [-hw, hh, -hd], [hw, hh, -hd], [hw, -hh, -hd]],
+    [[-hw, hh, hd], [hw, hh, hd], [hw, hh, -hd], [-hw, hh, -hd]],
+    [[-hw, -hh, -hd], [hw, -hh, -hd], [hw, -hh, hd], [-hw, -hh, hd]],
+    [[hw, -hh, -hd], [hw, hh, -hd], [hw, hh, hd], [hw, -hh, hd]],
+    [[-hw, -hh, hd], [-hw, hh, hd], [-hw, hh, -hd], [-hw, -hh, -hd]],
   ];
   const pts = [];
   for (const [a, b, c, e] of faces) {
     pts.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
     pts.push(a[0], a[1], a[2], c[0], c[1], c[2], e[0], e[1], e[2]);
+  }
+  return computeFlatNormalsMesh(pts);
+}
+
+export function createChamferSlabMesh(w = 2.0, h = 1.2, d = 0.22, bevel = 0.06) {
+  const hw = w * 0.5, hh = h * 0.5, hd = d * 0.5;
+  const bev = Math.max(0.005, Math.min(bevel, hw * 0.45, hh * 0.45, hd * 0.45));
+  const bw = hw - bev, bh = hh - bev, bd = hd - bev;
+  const pts = [];
+  const pushTri = (a, b, c) => {
+    pts.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
+  };
+  const pushQuad = (a, b, c, e) => {
+    pushTri(a, b, c);
+    pushTri(a, c, e);
+  };
+
+  // 6 flat faces (inset along orthogonal axes)
+  pushQuad([-bw, -bh,  hd], [ bw, -bh,  hd], [ bw,  bh,  hd], [-bw,  bh,  hd]); // +Z front
+  pushQuad([ bw, -bh, -hd], [-bw, -bh, -hd], [-bw,  bh, -hd], [ bw,  bh, -hd]); // -Z back
+  pushQuad([ hw, -bh,  bd], [ hw, -bh, -bd], [ hw,  bh, -bd], [ hw,  bh,  bd]); // +X right
+  pushQuad([-hw, -bh, -bd], [-hw, -bh,  bd], [-hw,  bh,  bd], [-hw,  bh, -bd]); // -X left
+  pushQuad([-bw,  hh,  bd], [ bw,  hh,  bd], [ bw,  hh, -bd], [-bw,  hh, -bd]); // +Y top
+  pushQuad([-bw, -hh, -bd], [ bw, -hh, -bd], [ bw, -hh,  bd], [-bw, -hh,  bd]); // -Y bottom
+
+  // 4 front bevel strips
+  pushQuad([-bw,  bh,  hd], [ bw,  bh,  hd], [ bw,  hh,  bd], [-bw,  hh,  bd]); // front-top
+  pushQuad([-bw, -hh,  bd], [ bw, -hh,  bd], [ bw, -bh,  hd], [-bw, -bh,  hd]); // front-bot
+  pushQuad([ bw, -bh,  hd], [ hw, -bh,  bd], [ hw,  bh,  bd], [ bw,  bh,  hd]); // front-right
+  pushQuad([-hw, -bh,  bd], [-bw, -bh,  hd], [-bw,  bh,  hd], [-hw,  bh,  bd]); // front-left
+
+  // 4 back bevel strips
+  pushQuad([ bw,  bh, -hd], [-bw,  bh, -hd], [-bw,  hh, -bd], [ bw,  hh, -bd]); // back-top
+  pushQuad([ bw, -hh, -bd], [-bw, -hh, -bd], [-bw, -bh, -hd], [ bw, -bh, -hd]); // back-bot
+  pushQuad([ hw, -bh, -bd], [ bw, -bh, -hd], [ bw,  bh, -hd], [ hw,  bh, -bd]); // back-right
+  pushQuad([-bw, -bh, -hd], [-hw, -bh, -bd], [-hw,  bh, -bd], [-bw,  bh, -hd]); // back-left
+
+  // 4 axial side bevel strips
+  pushQuad([ bw,  hh,  bd], [ hw,  bh,  bd], [ hw,  bh, -bd], [ bw,  hh, -bd]); // top-right
+  pushQuad([-hw,  bh,  bd], [-bw,  hh,  bd], [-bw,  hh, -bd], [-hw,  bh, -bd]); // top-left
+  pushQuad([ hw, -bh,  bd], [ bw, -hh,  bd], [ bw, -hh, -bd], [ hw, -bh, -bd]); // bot-right
+  pushQuad([-bw, -hh,  bd], [-hw, -bh,  bd], [-hw, -bh, -bd], [-bw, -hh, -bd]); // bot-left
+
+  // 8 corner chamfer triangles (completing watertight 2-manifold)
+  pushTri([ bw,  bh,  hd], [ hw,  bh,  bd], [ bw,  hh,  bd]); // +X+Y+Z
+  pushTri([-bw,  bh,  hd], [-bw,  hh,  bd], [-hw,  bh,  bd]); // -X+Y+Z
+  pushTri([ bw, -bh,  hd], [ bw, -hh,  bd], [ hw, -bh,  bd]); // +X-Y+Z
+  pushTri([-bw, -bh,  hd], [-hw, -bh,  bd], [-bw, -hh,  bd]); // -X-Y+Z
+  pushTri([ bw,  bh, -hd], [ bw,  hh, -bd], [ hw,  bh, -bd]); // +X+Y-Z
+  pushTri([-bw,  bh, -hd], [-hw,  bh, -bd], [-bw,  hh, -bd]); // -X+Y-Z
+  pushTri([ bw, -bh, -hd], [ hw, -bh, -bd], [ bw, -hh, -bd]); // +X-Y-Z
+  pushTri([-bw, -bh, -hd], [-bw, -hh, -bd], [-hw, -bh, -bd]); // -X-Y-Z
+
+  return computeFlatNormalsMesh(pts);
+}
+
+export function createCylinderMesh(rTop = 0.8, rBot = 0.8, height = 0.4, segs = 48) {
+  const pts = [];
+  const hh = height * 0.5;
+  const pushTri = (a, b, c) => pts.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
+  for (let i = 0; i < segs; i++) {
+    const a0 = (i / segs) * Math.PI * 2;
+    const a1 = ((i + 1) / segs) * Math.PI * 2;
+    const c0 = Math.cos(a0), s0 = Math.sin(a0);
+    const c1 = Math.cos(a1), s1 = Math.sin(a1);
+    const t0 = [c0 * rTop, hh, s0 * rTop];
+    const t1 = [c1 * rTop, hh, s1 * rTop];
+    const b0 = [c0 * rBot, -hh, s0 * rBot];
+    const b1 = [c1 * rBot, -hh, s1 * rBot];
+    pushTri(b0, b1, t1);
+    pushTri(b0, t1, t0);
+    pushTri([0, hh, 0], t1, t0);
+    pushTri([0, -hh, 0], b0, b1);
   }
   return computeFlatNormalsMesh(pts);
 }
@@ -218,7 +290,6 @@ export function createTorusKnotMesh(R = 1.15, tube = 0.22, pVal = 2, qVal = 3, s
   const pts = [];
   const norms = [];
   const curve = (u) => {
-    const cu = Math.cos(u), su = Math.sin(u);
     const r = 0.5 * (2 + Math.sin(qVal * u));
     return [
       R * r * Math.cos(pVal * u),
@@ -236,10 +307,13 @@ export function createTorusKnotMesh(R = 1.15, tube = 0.22, pVal = 2, qVal = 3, s
   const ring = (u) => {
     const center = curve(u);
     const T = tangent(u);
-    const up = Math.abs(T[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
-    let bx = T[1] * up[2] - T[2] * up[1];
-    let by = T[2] * up[0] - T[0] * up[2];
-    let bz = T[0] * up[1] - T[1] * up[0];
+    // Use smooth radial reference aligned with the knot's major angle so the tube frame never flips discontinuously.
+    const ref = pVal !== 0
+      ? [Math.cos(pVal * u), Math.sin(pVal * u), 0]
+      : (Math.hypot(T[0], T[1]) > 0.1 ? [0, 0, 1] : [1, 0, 0]);
+    let bx = T[1] * ref[2] - T[2] * ref[1];
+    let by = T[2] * ref[0] - T[0] * ref[2];
+    let bz = T[0] * ref[1] - T[1] * ref[0];
     const bl = Math.hypot(bx, by, bz) || 1;
     bx /= bl; by /= bl; bz /= bl;
     const nx = by * T[2] - bz * T[1];
@@ -271,7 +345,7 @@ export function createTorusKnotMesh(R = 1.15, tube = 0.22, pVal = 2, qVal = 3, s
   return { positions: new Float32Array(pts), normals: new Float32Array(norms), vertexCount: pts.length / 3 };
 }
 
-// ---------- WebGL2 PBR Renderer ----------
+// ---------- WebGL2 3-Point Tungsten/Titanium PBR Renderer with Planar Reflection ----------
 export function createWebGLRenderer(width, height, scale = 1) {
   const glCanvas = document.createElement("canvas");
   glCanvas.width = Math.max(2, Math.round(width * scale));
@@ -296,7 +370,7 @@ export function createWebGLRenderer(width, height, scale = 1) {
     void main() {
       vec4 wp = uModel * vec4(aPos, 1.0);
       vWorldPos = wp.xyz;
-      vNrm = mat3(uModel) * aNrm;
+      vNrm = transpose(inverse(mat3(uModel))) * aNrm;
       gl_Position = uMVP * vec4(aPos, 1.0);
     }
   `;
@@ -319,26 +393,33 @@ export function createWebGLRenderer(width, height, scale = 1) {
       vec3 N = normalize(vNrm);
       vec3 V = normalize(uCameraPos - vWorldPos);
 
-      vec3 L1 = normalize(vec3(3.5, 4.5, 4.2));
-      vec3 L2 = normalize(vec3(-4.0, -2.0, 2.5));
+      // 3-point lighting: Warm Key, Cool Fill, Razor Back Rim
+      vec3 L1 = normalize(vec3(3.8, 4.8, 4.0));
+      vec3 L2 = normalize(vec3(-4.2, -1.8, 2.8));
+      vec3 L3 = normalize(vec3(0.0, 3.2, -4.5));
       vec3 H1 = normalize(L1 + V);
       vec3 H2 = normalize(L2 + V);
+      vec3 H3 = normalize(L3 + V);
 
       float ndotl1 = max(dot(N, L1), 0.0);
       float ndotl2 = max(dot(N, L2), 0.0);
-      float shininess = mix(128.0, 14.0, clamp(uRoughness, 0.05, 0.98));
+      float ndotl3 = max(dot(N, L3), 0.0);
+      float shininess = mix(160.0, 12.0, clamp(uRoughness, 0.04, 0.98));
       float spec1 = pow(max(dot(N, H1), 0.0), shininess);
       float spec2 = pow(max(dot(N, H2), 0.0), shininess * 0.65);
+      float spec3 = pow(max(dot(N, H3), 0.0), shininess * 0.85);
 
-      float fresnel = pow(1.0 - max(dot(N, V), 0.0), 3.0);
-      vec3 envTint = mix(vec3(0.06, 0.08, 0.16), vec3(0.32, 0.45, 0.78), N.y * 0.5 + 0.5);
+      float fresnel = pow(1.0 - max(dot(N, V), 0.0), 3.4);
+      vec3 envTop = vec3(0.24, 0.23, 0.22);
+      vec3 envBot = vec3(0.04, 0.04, 0.05);
+      vec3 envTint = mix(envBot, envTop, N.y * 0.5 + 0.5);
 
-      vec3 diff = uBaseColor * (0.14 + ndotl1 * 0.62 * uKeyColor + ndotl2 * 0.35 * uFillColor);
-      vec3 specCol = mix(vec3(0.92), uBaseColor + vec3(0.25), uMetallic);
-      vec3 spec = specCol * (spec1 * 0.95 * uKeyColor + spec2 * 0.45 * uFillColor);
-      vec3 rim = mix(uKeyColor, uFillColor, 0.45) * fresnel * (0.45 + 0.45 * uMetallic);
+      vec3 diff = uBaseColor * (0.12 + ndotl1 * 0.68 * uKeyColor + ndotl2 * 0.32 * uFillColor + ndotl3 * 0.22);
+      vec3 specCol = mix(vec3(0.96), uBaseColor + vec3(0.22), uMetallic);
+      vec3 spec = specCol * (spec1 * 1.10 * uKeyColor + spec2 * 0.42 * uFillColor + spec3 * 0.55 * vec3(1.0, 0.92, 0.80));
+      vec3 rim = mix(uKeyColor, vec3(1.0, 0.95, 0.88), 0.5) * fresnel * (0.48 + 0.48 * uMetallic);
 
-      vec3 col = diff * (1.0 - 0.55 * uMetallic) + envTint * (0.15 + 0.35 * uMetallic) + spec + rim + uEmissive;
+      vec3 col = diff * (1.0 - 0.58 * uMetallic) + envTint * (0.16 + 0.38 * uMetallic) + spec + rim + uEmissive;
       outColor = vec4(col, uAlpha);
     }
   `;
@@ -403,9 +484,11 @@ export function createWebGLRenderer(width, height, scale = 1) {
     render({
       cameraPos = [0, 0.9, 6.2],
       cameraTarget = [0, 0, 0],
-      fovDeg = 42,
-      keyColor = [0.62, 0.78, 1.0],
-      fillColor = [0.23, 0.85, 0.64],
+      fovDeg = 40,
+      keyColor = [1.0, 0.86, 0.68],
+      fillColor = [0.58, 0.72, 0.92],
+      floorY = null,
+      reflectionAlpha = 0.16,
       objects = [],
     }) {
       gl.viewport(0, 0, glCanvas.width, glCanvas.height);
@@ -424,16 +507,45 @@ export function createWebGLRenderer(width, height, scale = 1) {
       gl.uniform3fv(uKeyColor, keyColor);
       gl.uniform3fv(uFillColor, fillColor);
 
+      // Optional planar floor reflection pass
+      if (floorY !== null && Number.isFinite(floorY)) {
+        gl.depthMask(false);
+        for (const obj of objects) {
+          if (obj.skipReflection) continue;
+          const rec = uploadMesh(obj.mesh);
+          const pos = obj.pos || [0, 0, 0];
+          const rot = obj.rot || [0, 0, 0];
+          const sc = typeof obj.scale === "number" ? [obj.scale, obj.scale, obj.scale] : (obj.scale || [1, 1, 1]);
+          const reflObj = {
+            pos: [pos[0], 2 * floorY - pos[1], pos[2]],
+            rot: [-rot[0], rot[1], -rot[2]],
+            scale: [sc[0], -sc[1], sc[2]],
+          };
+          const model = mat4.transform(reflObj);
+          const mvp = mat4.multiply(vp, model);
+          gl.uniformMatrix4fv(uMVP, false, mvp);
+          gl.uniformMatrix4fv(uModel, false, model);
+          gl.uniform3fv(uBaseColor, obj.color || [0.75, 0.75, 0.78]);
+          gl.uniform3fv(uEmissive, [0, 0, 0]);
+          gl.uniform1f(uRoughness, Math.min(0.95, (obj.roughness ?? 0.25) + 0.35));
+          gl.uniform1f(uMetallic, obj.metallic ?? 0.78);
+          gl.uniform1f(uAlpha, (obj.alpha ?? 1.0) * reflectionAlpha);
+          gl.bindVertexArray(rec.vao);
+          gl.drawArrays(gl.TRIANGLES, 0, rec.count);
+        }
+        gl.depthMask(true);
+      }
+
       for (const obj of objects) {
         const rec = uploadMesh(obj.mesh);
         const model = mat4.transform(obj);
         const mvp = mat4.multiply(vp, model);
         gl.uniformMatrix4fv(uMVP, false, mvp);
         gl.uniformMatrix4fv(uModel, false, model);
-        gl.uniform3fv(uBaseColor, obj.color || [0.42, 0.55, 1.0]);
+        gl.uniform3fv(uBaseColor, obj.color || [0.82, 0.83, 0.86]);
         gl.uniform3fv(uEmissive, obj.emissive || [0, 0, 0]);
-        gl.uniform1f(uRoughness, obj.roughness ?? 0.25);
-        gl.uniform1f(uMetallic, obj.metallic ?? 0.72);
+        gl.uniform1f(uRoughness, obj.roughness ?? 0.22);
+        gl.uniform1f(uMetallic, obj.metallic ?? 0.78);
         gl.uniform1f(uAlpha, obj.alpha ?? 1.0);
         gl.bindVertexArray(rec.vao);
         gl.drawArrays(gl.TRIANGLES, 0, rec.count);
@@ -444,73 +556,7 @@ export function createWebGLRenderer(width, height, scale = 1) {
   };
 }
 
-// ---------- 2D HUD & Stage Editorial Graphics Helpers ----------
-export function drawStageBackdrop(ctx, W, H, t, { accentA = "#6c8cff", accentB = "#3ad29f", gridAlpha = 0.08 } = {}) {
-  const bg = ctx.createRadialGradient(W * 0.5, H * 0.42, 60, W * 0.5, H * 0.5, W * 0.85);
-  bg.addColorStop(0, "#11172a");
-  bg.addColorStop(0.52, "#0b0e17");
-  bg.addColorStop(1, "#06070c");
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, W, H);
-
-  // Perspective vanishing floor grid
-  ctx.save();
-  ctx.strokeStyle = `rgba(128, 154, 232, ${gridAlpha})`;
-  ctx.lineWidth = 1.2;
-  const horizonY = H * 0.58;
-  const vpX = W * 0.5;
-  for (let i = -10; i <= 10; i++) {
-    ctx.beginPath();
-    ctx.moveTo(vpX + i * 28, horizonY);
-    ctx.lineTo(vpX + i * 240, H + 40);
-    ctx.stroke();
-  }
-  for (let r = 0; r < 10; r++) {
-    const frac = ((r + (t * 0.45) % 1) / 10);
-    const y = horizonY + Math.pow(frac, 2.0) * (H - horizonY);
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(W, y);
-    ctx.stroke();
-  }
-  ctx.restore();
-
-  // Ambient chromatic bloom blobs
-  ctx.save();
-  ctx.globalAlpha = 0.16;
-  const g1 = ctx.createRadialGradient(W * 0.25, H * 0.28, 10, W * 0.25, H * 0.28, 460);
-  g1.addColorStop(0, accentA);
-  g1.addColorStop(1, "transparent");
-  ctx.fillStyle = g1;
-  ctx.fillRect(0, 0, W, H);
-
-  const g2 = ctx.createRadialGradient(W * 0.78, H * 0.72, 10, W * 0.78, H * 0.72, 480);
-  g2.addColorStop(0, accentB);
-  g2.addColorStop(1, "transparent");
-  ctx.fillStyle = g2;
-  ctx.fillRect(0, 0, W, H);
-  ctx.restore();
-}
-
-export function drawDepthParticles(ctx, W, H, t, count = 48) {
-  ctx.save();
-  for (let i = 0; i < count; i++) {
-    const seed = (i * 7919) % 997;
-    const z = ((seed / 997) + t * 0.14) % 1;
-    const angle = seed * 1.37;
-    const radius = 140 + (seed % 760);
-    const x = W * 0.5 + Math.cos(angle) * radius * (0.45 + z * 0.9);
-    const y = H * 0.48 + Math.sin(angle * 0.9) * radius * 0.48 * (0.45 + z * 0.9);
-    const sz = 1.2 + z * 3.8;
-    ctx.globalAlpha = Math.sin(z * Math.PI) * 0.65;
-    ctx.fillStyle = i % 3 === 0 ? "#3ad29f" : (i % 3 === 1 ? "#6c8cff" : "#e2e8f0");
-    ctx.beginPath();
-    ctx.arc(x, y, sz, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
-}
-
+// ---------- High-Craft Anti-Slop 2D & Post-Processing Helpers ----------
 export function roundRectPath(ctx, x, y, w, h, r = 14) {
   const rad = Math.min(r, w * 0.5, h * 0.5);
   ctx.beginPath();
@@ -526,32 +572,326 @@ export function roundRectPath(ctx, x, y, w, h, r = 14) {
   ctx.closePath();
 }
 
-export function drawGlassCard(ctx, x, y, w, h, {
-  radius = 16,
-  fill = "rgba(15, 20, 34, 0.84)",
-  border = "rgba(148, 175, 255, 0.24)",
-  glow = null,
+export function drawCraftBackdrop(ctx, W, H, t, {
+  theme = "obsidian",
+  warmPool = "rgba(245, 158, 11, 0.11)",
+  coolPool = "rgba(56, 189, 248, 0.07)",
+  floorHorizon = null,
+  showCrosshairs = true,
+} = {}) {
+  const palettes = {
+    obsidian: ["#121215", "#0a0a0c", "#050507"],
+    editorial: ["#161514", "#0e0d0c", "#080707"],
+    optical: ["#0e1014", "#08090c", "#040507"],
+    pearl: ["#ffffff", "#f6f7fb", "#ececf8"],
+    midnight: ["#131026", "#090714", "#05040c"],
+  };
+  const [c0, c1, c2] = palettes[theme] || palettes.obsidian;
+  const bg = ctx.createRadialGradient(W * 0.5, H * 0.38, 40, W * 0.5, H * 0.5, Math.max(W, H) * 0.82);
+  bg.addColorStop(0, c0);
+  bg.addColorStop(0.55, c1);
+  bg.addColorStop(1, c2);
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Volumetric key & fill light pools (subtle, non-neon)
+  ctx.save();
+  const driftX = Math.sin(t * 0.55) * 36;
+  const warmRadius = Math.max(W, H) * 0.42;
+  const gWarm = ctx.createRadialGradient(W * 0.34 + driftX, H * 0.28, 10, W * 0.34 + driftX, H * 0.28, warmRadius);
+  gWarm.addColorStop(0, warmPool);
+  gWarm.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = gWarm;
+  ctx.fillRect(0, 0, W, H);
+
+  const gCool = ctx.createRadialGradient(W * 0.74 - driftX, H * 0.68, 10, W * 0.74 - driftX, H * 0.68, warmRadius * 0.92);
+  gCool.addColorStop(0, coolPool);
+  gCool.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = gCool;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+
+  // Optional anodized ground reflection horizon line
+  if (floorHorizon !== null) {
+    ctx.save();
+    const fy = H * floorHorizon;
+    const fGrad = ctx.createLinearGradient(0, fy, 0, H);
+    fGrad.addColorStop(0, "rgba(255, 255, 255, 0.035)");
+    fGrad.addColorStop(0.15, "rgba(10, 10, 12, 0.45)");
+    fGrad.addColorStop(1, "rgba(4, 4, 6, 0.85)");
+    ctx.fillStyle = fGrad;
+    ctx.fillRect(0, fy, W, H - fy);
+
+    const hLine = ctx.createLinearGradient(W * 0.1, fy, W * 0.9, fy);
+    hLine.addColorStop(0, "rgba(255,255,255,0)");
+    hLine.addColorStop(0.5, "rgba(244, 244, 245, 0.14)");
+    hLine.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = hLine;
+    ctx.fillRect(W * 0.1, fy - 0.5, W * 0.8, 1);
+    ctx.restore();
+  }
+
+  // Architectural precision micro-crosshairs (240px calibration grid)
+  if (showCrosshairs) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(244, 244, 245, 0.065)";
+    ctx.lineWidth = 1;
+    for (let x = 240; x < W; x += 240) {
+      for (let y = 180; y < H; y += 240) {
+        ctx.beginPath();
+        ctx.moveTo(x - 4, y);
+        ctx.lineTo(x + 4, y);
+        ctx.moveTo(x, y - 4);
+        ctx.lineTo(x, y + 4);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+}
+
+export function drawMachinedPanel(ctx, x, y, w, h, {
+  radius = 14,
+  surfaceTop = "rgba(24, 24, 28, 0.94)",
+  surfaceBot = "rgba(14, 14, 17, 0.96)",
+  border = "rgba(255, 255, 255, 0.09)",
+  bevelTop = "rgba(255, 255, 255, 0.22)",
+  accentColor = null,
+  headerH = 0,
+  title = null,
+  tag = null,
+  elevation = 32,
 } = {}) {
   ctx.save();
-  if (glow) {
-    ctx.shadowColor = glow;
-    ctx.shadowBlur = 28;
-  } else {
-    ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
-    ctx.shadowBlur = 24;
-    ctx.shadowOffsetY = 12;
-  }
+  // Deep physical contact + ambient shadow
+  ctx.shadowColor = "rgba(0, 0, 0, 0.72)";
+  ctx.shadowBlur = elevation;
+  ctx.shadowOffsetY = Math.round(elevation * 0.42);
   roundRectPath(ctx, x, y, w, h, radius);
-  ctx.fillStyle = fill;
+  const surf = ctx.createLinearGradient(x, y, x, y + h);
+  surf.addColorStop(0, surfaceTop);
+  surf.addColorStop(1, surfaceBot);
+  ctx.fillStyle = surf;
+  ctx.fill();
+
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+
+  if (headerH > 0) {
+    ctx.save();
+    roundRectPath(ctx, x, y, w, h, radius);
+    ctx.clip();
+    ctx.fillStyle = "rgba(255, 255, 255, 0.028)";
+    ctx.fillRect(x, y, w, headerH);
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.07)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, y + headerH);
+    ctx.lineTo(x + w, y + headerH);
+    ctx.stroke();
+
+    // Machined hardware status dots
+    for (let i = 0; i < 3; i++) {
+      ctx.fillStyle = i === 0 && accentColor ? accentColor : "rgba(255, 255, 255, 0.18)";
+      ctx.beginPath();
+      ctx.arc(x + 22 + i * 14, y + headerH * 0.5, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (title) {
+      ctx.font = '600 13px ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace';
+      ctx.fillStyle = "rgba(228, 228, 231, 0.78)";
+      ctx.textBaseline = "middle";
+      ctx.fillText(title, x + 70, y + headerH * 0.5 + 0.5);
+    }
+    if (tag) {
+      ctx.font = '700 11px ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace';
+      const tw = ctx.measureText(tag).width;
+      ctx.fillStyle = accentColor || "#f59e0b";
+      ctx.textBaseline = "middle";
+      ctx.fillText(tag, x + w - tw - 20, y + headerH * 0.5 + 0.5);
+    }
+    ctx.restore();
+  }
+
+  // Outer anodized rim
+  roundRectPath(ctx, x, y, w, h, radius);
+  ctx.lineWidth = 1.2;
+  ctx.strokeStyle = border;
+  ctx.stroke();
+
+  // Top 1px machined specular edge catch
+  const topGlint = ctx.createLinearGradient(x + radius, y, x + w - radius, y);
+  topGlint.addColorStop(0, "rgba(255,255,255,0.03)");
+  topGlint.addColorStop(0.35, bevelTop);
+  topGlint.addColorStop(0.65, bevelTop);
+  topGlint.addColorStop(1, "rgba(255,255,255,0.03)");
+  ctx.strokeStyle = topGlint;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y + 0.8);
+  ctx.lineTo(x + w - radius, y + 0.8);
+  ctx.stroke();
+
+  if (accentColor) {
+    const acc = ctx.createLinearGradient(x + radius, y, x + radius + 140, y);
+    acc.addColorStop(0, accentColor);
+    acc.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.strokeStyle = acc;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y + 0.8);
+    ctx.lineTo(Math.min(x + w - radius, x + radius + 140), y + 0.8);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+export function drawTactileCursor(ctx, x, y, {
+  pressed = false,
+  clickProgress = 0,
+  color = "#fafafa",
+  accent = "#f59e0b",
+  label = null,
+} = {}) {
+  ctx.save();
+  if (clickProgress > 0 && clickProgress < 1) {
+    const r = 8 + easeOutCubic(clickProgress) * 34;
+    ctx.strokeStyle = accent;
+    ctx.globalAlpha = (1 - clickProgress) * 0.85;
+    ctx.lineWidth = 2.2 * (1 - clickProgress * 0.5);
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.translate(x, y);
+  const sc = pressed ? 0.88 : 1.0;
+  ctx.scale(sc, sc);
+
+  ctx.shadowColor = "rgba(0, 0, 0, 0.65)";
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetY = 4;
+
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, 22);
+  ctx.lineTo(5.8, 17.2);
+  ctx.lineTo(10.2, 26.5);
+  ctx.lineTo(14.0, 24.6);
+  ctx.lineTo(9.6, 15.5);
+  ctx.lineTo(17.2, 15.5);
+  ctx.closePath();
+
+  ctx.fillStyle = color;
   ctx.fill();
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
   ctx.lineWidth = 1.5;
-  ctx.strokeStyle = border;
+  ctx.strokeStyle = "#09090b";
   ctx.stroke();
 
-  // Specular top bevel glint
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.14)";
+  if (label) {
+    ctx.font = '700 12px "Inter", -apple-system, sans-serif';
+    const tw = ctx.measureText(label).width;
+    const px = 18, py = 20;
+    roundRectPath(ctx, px, py, tw + 18, 24, 12);
+    ctx.fillStyle = accent;
+    ctx.fill();
+    ctx.fillStyle = "#09090b";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, px + 9, py + 12.5);
+  }
+  ctx.restore();
+}
+
+export function drawKineticHeadline(ctx, text, x, y, t, {
+  delay = 0,
+  stagger = 0.055,
+  font = '800 62px "Inter", "SF Pro Display", -apple-system, sans-serif',
+  color = "#f4f4f5",
+  accentWords = {},
+  accentColor = "#f59e0b",
+} = {}) {
+  ctx.save();
+  ctx.font = font;
+  ctx.textBaseline = "alphabetic";
+  const words = String(text).split(/\s+/);
+  const spaceW = ctx.measureText(" ").width * 0.92;
+  let curX = x;
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    const p = springProgress(t, { delay: delay + i * stagger, damping: 16, stiffness: 210 });
+    const alpha = clamp01(p * 1.25);
+    const liftY = (1 - p) * 28;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    const clean = word.replace(/[^a-zA-Z0-9/-]/g, "");
+    ctx.fillStyle = accentWords[word] || accentWords[clean] ? accentColor : color;
+    ctx.fillText(word, curX, y + liftY);
+    ctx.restore();
+    curX += ctx.measureText(word).width + spaceW;
+  }
+  ctx.restore();
+}
+
+export function drawBlurRevealText(ctx, text, x, y, progress, {
+  font = '800 84px "Inter", "SF Pro Display", -apple-system, sans-serif',
+  color = "#18181b",
+  align = "center",
+  baseline = "alphabetic",
+  maxBlur = 16,
+  liftPx = 18,
+  alpha = 1,
+} = {}) {
+  const p = clamp01(progress);
+  if (p <= 0.001) return;
+  const sharp = easeOutCubic(p);
+  const blurPx = Math.max(0, (1 - sharp) * maxBlur);
+  ctx.save();
+  ctx.font = font;
+  ctx.textAlign = align;
+  ctx.textBaseline = baseline;
+  ctx.globalAlpha = clamp01(sharp * 1.15) * alpha;
+  if ("filter" in ctx && blurPx > 0.25) {
+    ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
+  }
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, y + (1 - sharp) * liftPx);
+  ctx.restore();
+}
+
+export function drawPearlCard(ctx, x, y, w, h, {
+  radius = 28,
+  bg = "rgba(255, 255, 255, 0.94)",
+  border = "rgba(109, 93, 211, 0.14)",
+  shadowColor = "rgba(65, 58, 128, 0.12)",
+  shadowBlur = 34,
+  activeBorder = null,
+  activeGlow = null,
+} = {}) {
+  ctx.save();
+  if (activeGlow) {
+    ctx.shadowColor = activeGlow;
+    ctx.shadowBlur = shadowBlur + 12;
+    ctx.shadowOffsetY = 12;
+  } else {
+    ctx.shadowColor = shadowColor;
+    ctx.shadowBlur = shadowBlur;
+    ctx.shadowOffsetY = 14;
+  }
+  roundRectPath(ctx, x, y, w, h, radius);
+  ctx.fillStyle = bg;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.lineWidth = activeBorder ? 2.2 : 1.25;
+  ctx.strokeStyle = activeBorder || border;
+  ctx.stroke();
+
+  // Top translucent rim catch
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.78)";
+  ctx.lineWidth = 1.2;
   ctx.beginPath();
   ctx.moveTo(x + radius, y + 1);
   ctx.lineTo(x + w - radius, y + 1);
@@ -559,13 +899,143 @@ export function drawGlassCard(ctx, x, y, w, h, {
   ctx.restore();
 }
 
+export function drawPortalFlash(ctx, W, H, progress, {
+  cx = null,
+  cy = null,
+  color = "#f6f7fb",
+  coreColor = "#ffffff",
+  glowColor = "rgba(167, 139, 250, 0.55)",
+} = {}) {
+  const p = clamp01(progress);
+  if (p <= 0.001) return;
+  const ox = cx === null ? W * 0.5 : cx;
+  const oy = cy === null ? H * 0.5 : cy;
+  const maxR = Math.hypot(Math.max(ox, W - ox), Math.max(oy, H - oy)) * 1.18;
+  const r = easeOutExpo(p) * maxR;
+  ctx.save();
+  const grad = ctx.createRadialGradient(ox, oy, Math.max(1, r * 0.15), ox, oy, Math.max(4, r));
+  grad.addColorStop(0, coreColor);
+  grad.addColorStop(0.55, color);
+  grad.addColorStop(0.84, glowColor);
+  grad.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(ox, oy, r, 0, Math.PI * 2);
+  ctx.fill();
+  if (p > 0.65) {
+    ctx.globalAlpha = smoothstep(0.65, 1.0, p);
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, W, H);
+  }
+  ctx.restore();
+}
+
+let _grainTileCanvas = null;
+function _getGrainTile() {
+  if (_grainTileCanvas) return _grainTileCanvas;
+  const sz = 192;
+  const c = document.createElement("canvas");
+  c.width = sz;
+  c.height = sz;
+  const gctx = c.getContext("2d");
+  const img = gctx.createImageData(sz, sz);
+  const data = img.data;
+  let seed = 0x9e3779b9;
+  for (let i = 0; i < data.length; i += 4) {
+    seed ^= seed << 13;
+    seed ^= seed >>> 17;
+    seed ^= seed << 5;
+    const v = (seed & 0xff);
+    data[i] = v;
+    data[i + 1] = v;
+    data[i + 2] = v;
+    data[i + 3] = 255;
+  }
+  gctx.putImageData(img, 0, 0);
+  _grainTileCanvas = c;
+  return c;
+}
+
+export function drawFilmGrain(ctx, W, H, t, intensity = 0.038, {
+  vignette = null,
+  vignetteColor = null,
+} = {}) {
+  const tile = _getGrainTile();
+  const frameIdx = Math.round(t * 60);
+  const ox = (frameIdx * 53) % tile.width;
+  const oy = (frameIdx * 89) % tile.height;
+
+  ctx.save();
+  // Diagonal-scaled optical prime-lens edge vignette (light-safe on luminous pearl backdrops)
+  const vigAlpha = vignette !== null ? vignette : (intensity <= 0.028 ? 0.07 : 0.40);
+  const vigRgb = vignetteColor !== null ? vignetteColor : (intensity <= 0.028 ? "135, 130, 185" : "0, 0, 0");
+  if (vigAlpha > 0.001) {
+    const diagR = Math.hypot(W, H) * 0.56;
+    const innerR = diagR * 0.42;
+    const vig = ctx.createRadialGradient(W * 0.5, H * 0.5, innerR, W * 0.5, H * 0.5, diagR);
+    vig.addColorStop(0, `rgba(${vigRgb}, 0)`);
+    vig.addColorStop(1, `rgba(${vigRgb}, ${vigAlpha})`);
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // 35mm organic monochrome film grain
+  ctx.globalCompositeOperation = "overlay";
+  ctx.globalAlpha = intensity;
+  const pat = ctx.createPattern(tile, "repeat");
+  if (pat) {
+    ctx.translate(-ox, -oy);
+    ctx.fillStyle = pat;
+    ctx.fillRect(ox, oy, W + tile.width, H + tile.height);
+  }
+  ctx.restore();
+}
+
+// Legacy compatibility helpers preserved for external callers
+export function drawStageBackdrop(ctx, W, H, t, opts = {}) {
+  drawCraftBackdrop(ctx, W, H, t, { theme: "obsidian", ...opts });
+}
+
+export function drawDepthParticles(ctx, W, H, t, count = 24) {
+  ctx.save();
+  for (let i = 0; i < count; i++) {
+    const seed = (i * 7919) % 997;
+    const z = ((seed / 997) + t * 0.08) % 1;
+    const angle = seed * 1.37;
+    const radius = 180 + (seed % 720);
+    const x = W * 0.5 + Math.cos(angle) * radius * (0.5 + z * 0.8);
+    const y = H * 0.48 + Math.sin(angle * 0.9) * radius * 0.46 * (0.5 + z * 0.8);
+    ctx.globalAlpha = Math.sin(z * Math.PI) * 0.28;
+    ctx.fillStyle = i % 2 === 0 ? "#f59e0b" : "#e4e4e7";
+    ctx.beginPath();
+    ctx.arc(x, y, 1.0 + z * 2.0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+export function drawGlassCard(ctx, x, y, w, h, {
+  radius = 14,
+  fill = "rgba(20, 20, 24, 0.92)",
+  border = "rgba(255, 255, 255, 0.10)",
+  glow = null,
+} = {}) {
+  drawMachinedPanel(ctx, x, y, w, h, {
+    radius,
+    surfaceTop: fill,
+    surfaceBot: fill,
+    border,
+    accentColor: glow,
+  });
+}
+
 export function drawPill(ctx, x, y, text, {
-  fg = "#b7c8ff",
-  bg = "rgba(108, 140, 255, 0.14)",
-  border = "rgba(108, 140, 255, 0.42)",
-  font = '700 18px ui-monospace, "SFMono-Regular", Menlo, monospace',
-  padX = 18,
-  height = 38,
+  fg = "#f4f4f5",
+  bg = "rgba(245, 158, 11, 0.14)",
+  border = "rgba(245, 158, 11, 0.42)",
+  font = '700 15px ui-monospace, "SFMono-Regular", Menlo, monospace',
+  padX = 16,
+  height = 34,
 } = {}) {
   ctx.save();
   ctx.font = font;
@@ -574,7 +1044,7 @@ export function drawPill(ctx, x, y, text, {
   roundRectPath(ctx, x, y, w, height, height * 0.5);
   ctx.fillStyle = bg;
   ctx.fill();
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 1.2;
   ctx.strokeStyle = border;
   ctx.stroke();
   ctx.fillStyle = fg;
@@ -584,56 +1054,40 @@ export function drawPill(ctx, x, y, text, {
   return w;
 }
 
-export function drawCornerHud(ctx, W, H, t, total, label = "KINEARC V3.0") {
+export function drawCornerHud(ctx, W, H, t, total, label = "KINEARC") {
   ctx.save();
-  const mono = '700 15px ui-monospace, "SFMono-Regular", Menlo, monospace';
-  ctx.font = mono;
-  ctx.fillStyle = "rgba(148, 163, 184, 0.72)";
-  ctx.fillText(`${label}  ·  60.00 FPS  ·  ${W}×${H}`, 64, 54);
-  const f = Math.min(Math.round(total * 60), Math.max(0, Math.round(t * 60)));
-  const tc = `${t.toFixed(2)}s / ${total.toFixed(2)}s  ·  f${f}`;
+  ctx.font = '600 13px ui-monospace, "SFMono-Regular", Menlo, monospace';
+  ctx.fillStyle = "rgba(161, 161, 170, 0.55)";
+  ctx.fillText(label, 64, 48);
+  const tc = `${t.toFixed(2)}s`;
   const m = ctx.measureText(tc);
-  ctx.fillText(tc, W - 64 - m.width, 54);
-
-  // Minimal hairline framing brackets
-  ctx.strokeStyle = "rgba(108, 140, 255, 0.35)";
-  ctx.lineWidth = 2;
-  const b = 18;
-  for (const [cx, cy, dx, dy] of [
-    [40, 40, 1, 1],
-    [W - 40, 40, -1, 1],
-    [40, H - 40, 1, -1],
-    [W - 40, H - 40, -1, -1],
-  ]) {
-    ctx.beginPath();
-    ctx.moveTo(cx + dx * b, cy);
-    ctx.lineTo(cx, cy);
-    ctx.lineTo(cx, cy + dy * b);
-    ctx.stroke();
-  }
+  ctx.fillText(tc, W - 64 - m.width, 48);
   ctx.restore();
 }
 
-export function registerScene({ width = 1920, height = 1080, fps = 60, totalDuration = 3.0, canvasId = "c", onFrame }) {
+export function registerScene({ width = 1920, height = 1080, fps = 60, totalDuration = 3.0, canvasId = "c", responsive = false, onFrame }) {
   const q = new URLSearchParams(location.search);
   const rawScale = parseFloat(q.get("scale") || "");
   const S = Number.isFinite(rawScale) && rawScale > 0 ? rawScale : 1;
 
+  const logicalW = responsive && window.innerWidth > 0 ? Math.max(2, Math.round(window.innerWidth / S)) : width;
+  const logicalH = responsive && window.innerHeight > 0 ? Math.max(2, Math.round(window.innerHeight / S)) : height;
+
   const canvas = document.getElementById(canvasId);
-  canvas.width = Math.max(2, Math.round(width * S));
-  canvas.height = Math.max(2, Math.round(height * S));
+  canvas.width = Math.max(2, Math.round(logicalW * S));
+  canvas.height = Math.max(2, Math.round(logicalH * S));
   canvas.style.width = "100vw";
   canvas.style.height = "100vh";
   canvas.style.display = "block";
   const ctx = canvas.getContext("2d");
 
-  const gl = createWebGLRenderer(width, height, S);
+  const gl = createWebGLRenderer(logicalW, logicalH, S);
 
   const seek = (rawTime) => {
     const t = clamp(Number.isFinite(rawTime) ? rawTime : 0, 0, totalDuration);
     ctx.setTransform(S, 0, 0, S, 0, 0);
-    ctx.clearRect(0, 0, width, height);
-    onFrame({ ctx, gl, W: width, H: height, scale: S, t, total: totalDuration, fps });
+    ctx.clearRect(0, 0, logicalW, logicalH);
+    onFrame({ ctx, gl, W: logicalW, H: logicalH, scale: S, t, total: totalDuration, fps });
   };
 
   const rawT = parseFloat(q.get("t") || "");

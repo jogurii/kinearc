@@ -1,57 +1,132 @@
 [
   {
-    "file": "sfx/lock.wav",
-    "time": 0.25,
+    "file": "sfx/harmonic_swell.wav",
+    "time": 0.21,
+    "volume": 0.76
+  },
+  {
+    "file": "sfx/ui_tap.wav",
+    "time": 1.2,
     "volume": 0.7
   },
   {
-    "file": "sfx/whoosh.wav",
-    "time": 4.95,
+    "file": "sfx/switch_latch.wav",
+    "time": 2.05,
+    "volume": 0.82
+  },
+  {
+    "file": "sfx/glass_ping.wav",
+    "time": 2.35,
+    "volume": 0.76
+  },
+  {
+    "file": "sfx/air_swish_fast.wav",
+    "time": 4.59,
     "volume": 0.72
   },
   {
-    "file": "sfx/click.wav",
-    "time": 6.6,
-    "volume": 0.65
+    "file": "sfx/harmonic_swell.wav",
+    "time": 5.21,
+    "volume": 0.78
   },
   {
-    "file": "sfx/whoosh.wav",
-    "time": 10.95,
+    "file": "sfx/crystal_glint.wav",
+    "time": 6.1,
+    "volume": 0.76
+  },
+  {
+    "file": "sfx/ui_tap.wav",
+    "time": 7.2,
+    "volume": 0.74
+  },
+  {
+    "file": "sfx/glass_ping.wav",
+    "time": 7.8,
+    "volume": 0.78
+  },
+  {
+    "file": "sfx/air_swish_fast.wav",
+    "time": 9.12,
     "volume": 0.72
   },
   {
-    "file": "sfx/lock.wav",
-    "time": 13.8,
-    "volume": 0.7
+    "file": "sfx/crystal_glint.wav",
+    "time": 10.0,
+    "volume": 0.78
   },
   {
-    "file": "sfx/whoosh.wav",
-    "time": 16.95,
-    "volume": 0.72
-  },
-  {
-    "file": "sfx/click.wav",
-    "time": 19.4,
-    "volume": 0.7
-  },
-  {
-    "file": "sfx/click.wav",
-    "time": 21.8,
-    "volume": 0.7
-  },
-  {
-    "file": "sfx/riser.wav",
-    "time": 23.0,
-    "volume": 0.65
-  },
-  {
-    "file": "sfx/lock.wav",
-    "time": 26.8,
+    "file": "sfx/switch_latch.wav",
+    "time": 10.02,
     "volume": 0.8
   },
   {
-    "file": "sfx/chord_hit.wav",
-    "time": 28.0,
-    "volume": 0.88
+    "file": "sfx/crystal_glint.wav",
+    "time": 11.1,
+    "volume": 0.78
+  },
+  {
+    "file": "sfx/switch_latch.wav",
+    "time": 11.12,
+    "volume": 0.8
+  },
+  {
+    "file": "sfx/crystal_glint.wav",
+    "time": 12.2,
+    "volume": 0.8
+  },
+  {
+    "file": "sfx/bloom_chime.wav",
+    "time": 12.23,
+    "volume": 0.84
+  },
+  {
+    "file": "sfx/air_swish_fast.wav",
+    "time": 13.62,
+    "volume": 0.72
+  },
+  {
+    "file": "sfx/scrubber_tick.wav",
+    "time": 14.35,
+    "volume": 0.55
+  },
+  {
+    "file": "sfx/scrubber_tick.wav",
+    "time": 14.57,
+    "volume": 0.48
+  },
+  {
+    "file": "sfx/scrubber_tick.wav",
+    "time": 14.79,
+    "volume": 0.48
+  },
+  {
+    "file": "sfx/scrubber_tick.wav",
+    "time": 15.01,
+    "volume": 0.48
+  },
+  {
+    "file": "sfx/scrubber_tick.wav",
+    "time": 15.23,
+    "volume": 0.48
+  },
+  {
+    "file": "sfx/scrubber_tick.wav",
+    "time": 15.45,
+    "volume": 0.55
+  },
+  {
+    "file": "sfx/switch_latch.wav",
+    "time": 16.05,
+    "volume": 0.82
+  },
+  {
+    "file": "sfx/bloom_chime.wav",
+    "time": 16.93,
+    "volume": 0.8
+  },
+  {
+    "file": "sfx/analog_chord.wav",
+    "time": 17.35,
+    "volume": 0.84
   }
 ]

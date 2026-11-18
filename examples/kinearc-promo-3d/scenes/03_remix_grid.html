@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KineArc — Remix Grid</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #f6f7fb;
+    }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+import {
+  clamp01,
+  lerp,
+  easeOutCubic,
+  springProgress,
+  roundRectPath,
+  drawCraftBackdrop,
+  drawBlurRevealText,
+  drawPearlCard,
+  drawFilmGrain,
+  registerScene,
+} from "./kinearc-gl3d.js";
+
+const FONT_FAMILY = '"Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+
+const TILES = [
+  { label: "Motion", start: 0.22, end: 0.84, accent: "#635bff", glow: "rgba(99, 91, 255, 0.28)" },
+  { label: "3D",     start: 0.84, end: 1.46, accent: "#7c3aed", glow: "rgba(124, 58, 237, 0.28)" },
+  { label: "Style",  start: 1.46, end: 2.08, accent: "#ec4899", glow: "rgba(236, 72, 153, 0.25)" },
+  { label: "Sound",  start: 2.08, end: 2.80, accent: "#635bff", glow: "rgba(99, 91, 255, 0.28)" },
+];
+
+function drawMotionIcon(ctx, cx, cy, sz, activeWeight, t) {
+  const w = sz * 1.15;
+  const amp = sz * 0.34;
+  const phase = activeWeight > 0.05 ? t * 4.5 : 0;
+  ctx.save();
+  ctx.lineWidth = 4.2;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = activeWeight > 0.2 ? "#635bff" : "#94a3b8";
+
+  ctx.beginPath();
+  const steps = 28;
+  for (let i = 0; i <= steps; i++) {
+    const u = i / steps;
+    const x = cx - w * 0.5 + u * w;
+    const y = cy + Math.sin(u * Math.PI * 2 + phase * 0.35) * amp;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Anchor nodes on ends
+  ctx.fillStyle = activeWeight > 0.2 ? "#ec4899" : "#94a3b8";
+  for (const u of [0, 1]) {
+    const x = cx - w * 0.5 + u * w;
+    const y = cy + Math.sin(u * Math.PI * 2 + phase * 0.35) * amp;
+    ctx.beginPath();
+    ctx.arc(x, y, 5.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawCube3DIcon(ctx, cx, cy, sz, activeWeight) {
+  const r = sz * 0.56;
+  const pts = [];
+  for (let i = 0; i < 6; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 3;
+    pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+  }
+  ctx.save();
+  if (activeWeight > 0.15) {
+    ctx.fillStyle = `rgba(99, 91, 255, ${(0.14 * activeWeight).toFixed(3)})`;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(pts[0][0], pts[0][1]);
+    ctx.lineTo(pts[1][0], pts[1][1]);
+    ctx.lineTo(pts[2][0], pts[2][1]);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.strokeStyle = activeWeight > 0.2 ? "#635bff" : "#94a3b8";
+  ctx.lineWidth = 4.0;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < 6; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.closePath();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(pts[0][0], pts[0][1]);
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(pts[2][0], pts[2][1]);
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(pts[4][0], pts[4][1]);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawStyleIcon(ctx, cx, cy, sz, activeWeight) {
+  const r = sz * 0.34;
+  const off = sz * 0.22;
+  ctx.save();
+  ctx.lineWidth = 3.8;
+  const cols = activeWeight > 0.2
+    ? ["#635bff", "#ec4899", "#f59e0b"]
+    : ["#94a3b8", "#94a3b8", "#cbd5e1"];
+  const centers = [
+    [cx, cy - off * 0.72],
+    [cx - off * 0.78, cy + off * 0.55],
+    [cx + off * 0.78, cy + off * 0.55],
+  ];
+  for (let i = 0; i < 3; i++) {
+    ctx.strokeStyle = cols[i];
+    if (activeWeight > 0.2) {
+      ctx.fillStyle = i === 0 ? "rgba(99, 91, 255, 0.12)" : i === 1 ? "rgba(236, 72, 153, 0.12)" : "rgba(245, 158, 11, 0.12)";
+    } else {
+      ctx.fillStyle = "rgba(148, 163, 184, 0.06)";
+    }
+    ctx.beginPath();
+    ctx.arc(centers[i][0], centers[i][1], r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawSoundIcon(ctx, cx, cy, sz, activeWeight, t) {
+  const heights = [0.42, 0.78, 1.0, 0.72, 0.48];
+  const barW = 7;
+  const gap = 12;
+  const totalW = heights.length * barW + (heights.length - 1) * gap;
+  const startX = cx - totalW * 0.5;
+  ctx.save();
+  for (let i = 0; i < heights.length; i++) {
+    const bounce = activeWeight > 0.05 ? 0.82 + 0.24 * Math.sin(t * 10 + i * 1.15) : 1.0;
+    const h = sz * 0.95 * heights[i] * bounce;
+    const bx = startX + i * (barW + gap);
+    const by = cy - h * 0.5;
+    ctx.fillStyle = activeWeight > 0.2 ? (i === 2 ? "#ec4899" : "#635bff") : "#94a3b8";
+    roundRectPath(ctx, bx, by, barW, h, barW * 0.5);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function getTileActivity(t, tile, isLast) {
+  if (t < tile.start) return 0;
+  const enter = springProgress(t, { delay: tile.start, duration: 0.34, damping: 12, stiffness: 250 });
+  if (isLast || t < tile.end) return enter;
+  const exit = easeOutCubic(clamp01((t - tile.end) / 0.15));
+  return enter * (1 - exit);
+}
+
+registerScene({
+  totalDuration: 2.8,
+  responsive: true,
+  onFrame({ ctx, W, H, t }) {
+    const isPortrait = H > W;
+    const cx = W * 0.5;
+
+    drawCraftBackdrop(ctx, W, H, t, {
+      theme: "pearl",
+      warmPool: "rgba(167, 139, 250, 0.16)",
+      coolPool: "rgba(56, 189, 248, 0.12)",
+      showCrosshairs: false,
+    });
+
+    // @cue 0.22 glint
+    // @cue 0.84 tap
+    // @cue 1.46 glint
+    // @cue 2.08 ping
+
+    const kickerP = clamp01((t - 0.04) / 0.30);
+    const kickerY = isPortrait ? H * 0.225 : H * 0.185;
+    const wordY = isPortrait ? H * 0.292 : H * 0.285;
+
+    drawBlurRevealText(ctx, "Remix every piece into", cx, kickerY, kickerP, {
+      font: `600 ${isPortrait ? 34 : 30}px ${FONT_FAMILY}`,
+      color: "#64748b",
+      align: "center",
+      maxBlur: 10,
+      liftPx: 10,
+    });
+
+    // Rack-focused cycling headline word swapping every 0.62s
+    for (let i = 0; i < TILES.length; i++) {
+      const tile = TILES[i];
+      const isLast = i === TILES.length - 1;
+      const focusStart = tile.start - 0.08;
+      if (t < focusStart) continue;
+      if (!isLast && t > tile.end + 0.14) continue;
+
+      const inP = clamp01((t - focusStart) / 0.20);
+      const outP = !isLast && t > tile.end - 0.10 ? clamp01((t - (tile.end - 0.10)) / 0.14) : 0;
+      const prog = outP > 0 ? lerp(1.0, 0.22, outP) : inP;
+      const alpha = outP > 0 ? 1 - outP : 1;
+
+      drawBlurRevealText(ctx, tile.label, cx, wordY, prog, {
+        font: `800 ${isPortrait ? 96 : 86}px ${FONT_FAMILY}`,
+        color: tile.accent === "#ec4899" ? "#18181b" : "#18181b",
+        align: "center",
+        maxBlur: 16,
+        liftPx: outP > 0 ? -12 : 16,
+        alpha,
+      });
+    }
+
+    // Minimal 2x2 porcelain tile grid
+    const gridEnter = springProgress(t, { delay: 0.02, duration: 0.55, damping: 16, stiffness: 180 });
+    const tileW = isPortrait ? 320 : 292;
+    const tileH = isPortrait ? 268 : 232;
+    const gap = isPortrait ? 32 : 34;
+    const gridW = tileW * 2 + gap;
+    const gridLeft = cx - gridW * 0.5;
+    const gridTop = isPortrait ? H * 0.358 : H * 0.365;
+
+    for (let i = 0; i < TILES.length; i++) {
+      const tile = TILES[i];
+      const isLast = i === TILES.length - 1;
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+
+      const activeWeight = getTileActivity(t, tile, isLast);
+      const bopScale = (0.94 + 0.06 * clamp01(gridEnter)) * (1.0 + 0.08 * activeWeight);
+
+      const baseX = gridLeft + col * (tileW + gap);
+      const baseY = gridTop + row * (tileH + gap);
+      const tcx = baseX + tileW * 0.5;
+      const tcy = baseY + tileH * 0.5;
+
+      ctx.save();
+      ctx.globalAlpha = clamp01(gridEnter * 1.4);
+      ctx.translate(tcx, tcy);
+      ctx.scale(bopScale, bopScale);
+      ctx.translate(-tcx, -tcy);
+
+      const isActive = activeWeight > 0.12;
+      drawPearlCard(ctx, baseX, baseY, tileW, tileH, {
+        radius: 30,
+        bg: isActive ? "rgba(255, 255, 255, 0.99)" : "rgba(255, 255, 255, 0.86)",
+        border: "rgba(109, 93, 211, 0.12)",
+        shadowColor: "rgba(65, 58, 128, 0.10)",
+        shadowBlur: 28,
+        activeBorder: isActive ? tile.accent : null,
+        activeGlow: isActive ? tile.glow : null,
+      });
+
+      const iconCy = baseY + tileH * 0.41;
+      const iconSz = isPortrait ? 64 : 58;
+      if (i === 0) drawMotionIcon(ctx, tcx, iconCy, iconSz, activeWeight, t);
+      else if (i === 1) drawCube3DIcon(ctx, tcx, iconCy, iconSz, activeWeight);
+      else if (i === 2) drawStyleIcon(ctx, tcx, iconCy, iconSz, activeWeight);
+      else drawSoundIcon(ctx, tcx, iconCy, iconSz, activeWeight, t);
+
+      // Single 1-word label below icon
+      ctx.font = `700 ${isPortrait ? 28 : 25}px ${FONT_FAMILY}`;
+      ctx.fillStyle = activeWeight > 0.25 ? "#18181b" : "#64748b";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(tile.label, tcx, baseY + tileH * 0.77);
+
+      ctx.restore();
+    }
+
+    drawFilmGrain(ctx, W, H, t, 0.020);
+  },
+});
+</script>
+</body>
+</html>

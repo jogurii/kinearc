@@ -40,6 +40,7 @@ description: Universal programmatic video, 2D/3D motion graphics, interactive we
 ```
 
 ### Reference Guides Index (`references/`)
+* **Anti-AI-Slop Visual & Tactile Audio Craft Directive:** `references/anti-ai-slop.md` (mandatory Ban List, Obsidian/Editorial/Optical archetypes, `assets/craft/kinearc-gl3d.js`, 35mm film grain, tactile cursor choreography, and `kinearc_cli.py autocue` micro-timed foley).
 * **Native HTML/Canvas Engine & Unified CLI:** `references/kinearc-engine.md` (`scripts/kinearc_cli.py`, `kinearc.project.json`, `window.kinearc.seek(t)` contract, `engine/render.mjs` WebCodecs/CDP 4K export).
 * **Cloning:** `references/video-cloning.md` (5-stage CV capture, scene-cut/loop diagnostics, and `--scale=2` 4K reconstruction).
 * **Ads / Promos / Explainers:** `references/ad-craft.md` (narrative arcs, `16:9` / `9:16` UI safe zones, continuous motion, pre-render still audit).
@@ -58,7 +59,7 @@ description: Universal programmatic video, 2D/3D motion graphics, interactive we
 
 Located inside `<skill_dir>/scripts/` and `<skill_dir>/engine/` (all analysis scripts default to `.kinearc_analysis/` and accept explicit `--out_dir` overrides cleanly):
 1. **`kinearc_cli.py` + `engine/render.mjs` (`engine/browser_find.mjs`):**
-   * Unified CLI (`doctor`, `stills`, `render`, plus direct passthrough to `extract`, `track`, `measure`, `verify`, `ui`, `audio`).
+   * Unified CLI (`doctor`, `stills`, `render`, `autocue`, plus direct passthrough to `extract`, `track`, `measure`, `verify`, `ui`, `audio`).
    * Validates `kinearc.project.json` manifests (even-dimension clamping, scene/audio asset checks), auto-discovers Chrome/Edge/Chromium across Windows/macOS/Linux, and drives zero-npm Headless Chromium WebCodecs (`VideoEncoder` Annex-B H.264) + CDP PNG fallback up to **4K 60fps** (`--scale 2`, `--json-progress`) with automatic `audio_mix.py` voice/BGM/SFX muxing (`references/kinearc-engine.md`).
 2. **`extract_full_motion.py`:** Extracts 100% of frames at native FPS (auto-preserving HD resolution `>= 720px` up to `1920px`), builds dense 30-frame contact sheets, generates **RGB Chrono-Motion Trail sheets** (`Red = Past → Green = Mid → Blue = Present`), exports hard-cut diagnostics to `.kinearc_analysis/scene_cuts.json` (with before/after transition pairs in `.kinearc_analysis/cuts/`, configurable via `--cut-threshold`), and records `source_loop_mae` inside `.kinearc_analysis/metadata.json`.
 3. **`track_objects.py`:**
@@ -76,8 +77,9 @@ Located inside `<skill_dir>/scripts/` and `<skill_dir>/engine/` (all analysis sc
    * **Dual Mode Stage:** Switch between **`Live` Scene** (drives `window.kinearc.seek(t)` / `renderAt(t)` inside an aspect-locked iframe with multi-scene switching) and **MP4 Diff** modes (`Clone`, `Side-by-Side`, `Split`, `Onion`, `Diff` 4× error heatmap, cross-FPS synced against `--ref`).
    * **Inspection Overlays & Timeline:** Platform **Safe Zones** (`9:16`, `16:9`, `1:1`, `thirds`), interactive **`2×` Loupe**, frame stepping, real audio **Waveform** (`/api/audio-peaks`), Loop Seam status pill, and clickable **SceneCut** (`scene_cuts.json`), **Worst-MAE** (`verification_report.json`), and **SFX** (`cues.json`) timeline markers.
    * **Inspector Drawer (`Notes` / `QA` / `Audio & Out`):** Pin click/drag-box notes saved to `.kinearc_analysis/selection.json` + `selection/note_<id>.png` (`Copy Prompt`), jump directly to `worst_frames` and `scene_cuts` pairs in `QA`, trigger **`Trim Pauses`** (`cut-pauses`) and **`Auto-Duck Mix`** (`audio_mix`) into `.kinearc_analysis/renders/`, and run one-click **`Render Still`**, **`Export 1080p 60fps`**, or **`Export 4K 60fps`** via `/api/render` with live frame progress (`GET /api/render/<job_id>`) and **`Open in Stage / Diff`** (`POST /api/render/load`) into `Stage`.
-7. **`audio_mix.py`:**
-   * Post-production FFmpeg audio engine: **`mix`** adds voiceover, auto-looped & sidechain-ducked BGM, and timestamped SFX (`cues.json`) onto your MP4 without re-encoding video (`-c:v copy`); **`cut-pauses`** detects dead air via `silencedetect`, exports `cuts.json`, and trims silent pauses from raw narration or talking-head footage.
+7. **`audio_mix.py` + `auto_cue.py` (`kinearc_cli.py autocue`) + `assets/sfx/`:**
+   * **`auto_cue.py` (`autocue`):** Parses `@cue` directives (or `springProgress` keyframes) across scenes, expands `typing`, `scrub`, and `transition` bursts with `-30ms` psychoacoustic pre-rolls, and outputs `cues.json` mapped to the bundled `assets/sfx/` tactile foley pack (`scripts/build_sfx_pack.py`).
+   * **`audio_mix.py`:** Post-production FFmpeg audio engine: **`mix`** adds voiceover, auto-looped & sidechain-ducked BGM, and timestamped SFX (`cues.json`, automatically resolving relative `sfx/*.wav` against `assets/sfx/`) onto your MP4 without re-encoding video (`-c:v copy`); **`cut-pauses`** detects dead air via `silencedetect`, exports `cuts.json`, and trims silent pauses from raw narration or talking-head footage.
 
 ---
 

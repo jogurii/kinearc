@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>KineArc Tutorial — 02 Extract Rhythm & Feel</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #f6f7fb;
+    }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+import {
+  clamp01,
+  easeInOutCubic,
+  easeOutCubic,
+  lerp,
+  smoothstep,
+  springProgress,
+  roundRectPath,
+  drawCraftBackdrop,
+  drawBlurRevealText,
+  drawPearlCard,
+  drawTactileCursor,
+  drawFilmGrain,
+  registerScene,
+} from "./kinearc-gl3d.js";
+
+const TOTAL = 4.5;
+const SANS_FONT = '"Inter", "SF Pro Display", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif';
+
+// @cue 0.12 swish volume=0.72
+// @cue 0.75 swell volume=0.78
+// @cue 1.60 glint volume=0.76
+// @cue 2.70 tap volume=0.74
+// @cue 3.30 ping volume=0.78
+
+function drawStepPill(ctx, cx, y, label, progress) {
+  const p = clamp01(progress);
+  if (p <= 0.001) return;
+  ctx.save();
+  ctx.globalAlpha = p;
+  ctx.translate(cx, y + (1 - easeOutCubic(p)) * 12);
+  ctx.font = `700 15px ${SANS_FONT}`;
+  const tw = ctx.measureText(label).width;
+  const w = tw + 38;
+  const h = 36;
+  roundRectPath(ctx, -w * 0.5, -h * 0.5, w, h, h * 0.5);
+  ctx.fillStyle = "rgba(124, 58, 237, 0.10)";
+  ctx.fill();
+  ctx.lineWidth = 1.25;
+  ctx.strokeStyle = "rgba(124, 58, 237, 0.28)";
+  ctx.stroke();
+
+  ctx.fillStyle = "#6d28d9";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, 0, 1);
+  ctx.restore();
+}
+
+function drawMotionCard(ctx, cx, cy, {
+  t,
+  scale = 1,
+  rot = 0,
+  alpha = 1,
+  highlight = 0,
+  bopProgress = 0,
+} = {}) {
+  if (alpha <= 0.001) return;
+  const w = 460;
+  const h = 340;
+  const bopScale = bopProgress > 0 ? 1 + 0.068 * Math.sin(clamp01(bopProgress) * Math.PI) : 1;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(cx, cy);
+  ctx.rotate(rot);
+  ctx.scale(scale * bopScale, scale * bopScale);
+
+  drawPearlCard(ctx, -w * 0.5, -h * 0.5, w, h, {
+    radius: 30,
+    bg: "rgba(255, 255, 255, 0.95)",
+    border: "rgba(109, 93, 211, 0.15)",
+    activeBorder: highlight > 0.04 ? `rgba(245, 158, 11, ${(0.28 + highlight * 0.52).toFixed(3)})` : null,
+    activeGlow: highlight > 0.04 ? `rgba(245, 158, 11, ${(0.12 + highlight * 0.18).toFixed(3)})` : null,
+    shadowBlur: 38,
+  });
+
+  // Minimal inner artwork well
+  const boxW = 384;
+  const boxH = 176;
+  const boxY = -h * 0.5 + 32;
+  roundRectPath(ctx, -boxW * 0.5, boxY, boxW, boxH, 20);
+  const wellGrad = ctx.createLinearGradient(-boxW * 0.5, boxY, boxW * 0.5, boxY + boxH);
+  wellGrad.addColorStop(0, "#fdf8f0");
+  wellGrad.addColorStop(1, "#f5f3ff");
+  ctx.fillStyle = wellGrad;
+  ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(124, 58, 237, 0.09)";
+  ctx.stroke();
+
+  // Flowing golden-to-violet wave curve
+  const waveY = boxY + boxH * 0.52;
+  const curvePt = (u) => {
+    const px = lerp(-150, 150, u);
+    const py = waveY - Math.sin(u * Math.PI * 2.15 + t * 1.1) * 34 * Math.sin(u * Math.PI * 0.85 + 0.25);
+    return [px, py];
+  };
+
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineWidth = 5.5;
+  const cGrad = ctx.createLinearGradient(-150, waveY, 150, waveY);
+  cGrad.addColorStop(0, "#f59e0b");
+  cGrad.addColorStop(0.55, "#ec4899");
+  cGrad.addColorStop(1, "#7c3aed");
+  ctx.strokeStyle = cGrad;
+  ctx.beginPath();
+  for (let i = 0; i <= 48; i++) {
+    const [px, py] = curvePt(i / 48);
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // Moving luminous bead along motion curve
+  const beadU = (t * 0.42 + highlight * 0.15) % 1;
+  const [bx, by] = curvePt(beadU);
+  ctx.beginPath();
+  ctx.arc(bx, by, 13 + highlight * 4, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(245, 158, 11, ${(0.20 + highlight * 0.25).toFixed(3)})`;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(bx, by, 7, 0, Math.PI * 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = "#f59e0b";
+  ctx.stroke();
+  ctx.restore();
+
+  // Crisp everyday copy
+  ctx.font = `700 28px ${SANS_FONT}`;
+  ctx.fillStyle = "#18181b";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("Motion & Pacing", 0, 82);
+
+  ctx.font = `500 19px ${SANS_FONT}`;
+  ctx.fillStyle = "#64748b";
+  ctx.fillText("Curves & speed", 0, 118);
+
+  ctx.restore();
+}
+
+function drawSoundCard(ctx, cx, cy, {
+  t,
+  scale = 1,
+  rot = 0,
+  alpha = 1,
+  highlight = 0,
+  bopProgress = 0,
+} = {}) {
+  if (alpha <= 0.001) return;
+  const w = 460;
+  const h = 340;
+  const bopScale = bopProgress > 0 ? 1 + 0.068 * Math.sin(clamp01(bopProgress) * Math.PI) : 1;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(cx, cy);
+  ctx.rotate(rot);
+  ctx.scale(scale * bopScale, scale * bopScale);
+
+  drawPearlCard(ctx, -w * 0.5, -h * 0.5, w, h, {
+    radius: 30,
+    bg: "rgba(255, 255, 255, 0.95)",
+    border: "rgba(109, 93, 211, 0.15)",
+    activeBorder: highlight > 0.04 ? `rgba(124, 58, 237, ${(0.28 + highlight * 0.52).toFixed(3)})` : null,
+    activeGlow: highlight > 0.04 ? `rgba(56, 189, 248, ${(0.14 + highlight * 0.20).toFixed(3)})` : null,
+    shadowBlur: 38,
+  });
+
+  // Minimal inner artwork well
+  const boxW = 384;
+  const boxH = 176;
+  const boxY = -h * 0.5 + 32;
+  roundRectPath(ctx, -boxW * 0.5, boxY, boxW, boxH, 20);
+  const wellGrad = ctx.createLinearGradient(-boxW * 0.5, boxY, boxW * 0.5, boxY + boxH);
+  wellGrad.addColorStop(0, "#f5f3ff");
+  wellGrad.addColorStop(1, "#f0f9ff");
+  ctx.fillStyle = wellGrad;
+  ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(56, 189, 248, 0.14)";
+  ctx.stroke();
+
+  // Expanding violet/sky radial sound rings
+  const ringCy = boxY + boxH * 0.5;
+  ctx.save();
+  roundRectPath(ctx, -boxW * 0.5, boxY, boxW, boxH, 20);
+  ctx.clip();
+
+  for (let i = 0; i < 3; i++) {
+    const phase = (t * 0.65 + i / 3) % 1;
+    const rad = lerp(16, 82, easeOutCubic(phase));
+    const ringAlpha = (1 - phase) * (0.48 + highlight * 0.35);
+    ctx.strokeStyle = i % 2 === 0 ? "#7c3aed" : "#0ea5e9";
+    ctx.globalAlpha = alpha * ringAlpha;
+    ctx.lineWidth = 2.6 - phase * 1.4;
+    ctx.beginPath();
+    ctx.arc(0, ringCy, rad, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Click ripple boost at t=2.70s
+  if (bopProgress > 0 && bopProgress < 1) {
+    ctx.strokeStyle = "#38bdf8";
+    ctx.globalAlpha = alpha * (1 - bopProgress) * 0.75;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, ringCy, lerp(20, 120, easeOutCubic(bopProgress)), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  ctx.globalAlpha = alpha;
+  // Center pulse core
+  ctx.beginPath();
+  ctx.arc(0, ringCy, 14 + highlight * 3, 0, Math.PI * 2);
+  const coreGrad = ctx.createLinearGradient(-14, ringCy - 14, 14, ringCy + 14);
+  coreGrad.addColorStop(0, "#7c3aed");
+  coreGrad.addColorStop(1, "#38bdf8");
+  ctx.fillStyle = coreGrad;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(0, ringCy, 5, 0, Math.PI * 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
+  ctx.restore();
+
+  // Crisp everyday copy
+  ctx.font = `700 28px ${SANS_FONT}`;
+  ctx.fillStyle = "#18181b";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("Sound & Cuts", 0, 82);
+
+  ctx.font = `500 19px ${SANS_FONT}`;
+  ctx.fillStyle = "#64748b";
+  ctx.fillText("Beats & transitions", 0, 118);
+
+  ctx.restore();
+}
+
+function drawBridgingArcs(ctx, lx, ly, rx, ry, t, progress) {
+  const p = clamp01(progress);
+  if (p <= 0.01) return;
+  ctx.save();
+  ctx.globalAlpha = p;
+
+  const drawThread = (yOff, c0, c1, phaseShift) => {
+    const x0 = lx + 230;
+    const y0 = ly + yOff;
+    const x1 = rx - 230;
+    const y1 = ry + yOff;
+    const mx = (x0 + x1) * 0.5;
+    const grad = ctx.createLinearGradient(x0, y0, x1, y1);
+    grad.addColorStop(0, c0);
+    grad.addColorStop(1, c1);
+
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2.4;
+    ctx.setLineDash([7, 7]);
+    ctx.lineDashOffset = -t * 36;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.bezierCurveTo(mx, y0 - 42, mx, y1 + 42, x1, y1);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Travelling pearl light bead along curve
+    const u = (t * 0.52 + phaseShift) % 1;
+    const inv = 1 - u;
+    const bx = inv * inv * inv * x0 + 3 * inv * inv * u * mx + 3 * inv * u * u * mx + u * u * u * x1;
+    const by = inv * inv * inv * y0 + 3 * inv * inv * u * (y0 - 42) + 3 * inv * u * u * (y1 + 42) + u * u * u * y1;
+    ctx.beginPath();
+    ctx.arc(bx, by, 5, 0, Math.PI * 2);
+    ctx.fillStyle = phaseShift === 0 ? "#f59e0b" : "#7c3aed";
+    ctx.fill();
+  };
+
+  drawThread(-26, "rgba(245, 158, 11, 0.58)", "rgba(124, 58, 237, 0.58)", 0);
+  drawThread(26, "rgba(124, 58, 237, 0.45)", "rgba(56, 189, 248, 0.58)", 0.5);
+
+  ctx.restore();
+}
+
+registerScene({
+  width: 1920,
+  height: 1080,
+  fps: 60,
+  totalDuration: TOTAL,
+  onFrame({ ctx, W, H, t }) {
+    drawCraftBackdrop(ctx, W, H, t, {
+      theme: "pearl",
+      warmPool: "rgba(167, 139, 250, 0.14)",
+      coolPool: "rgba(56, 189, 248, 0.11)",
+      showCrosshairs: false,
+    });
+
+    const cx = W * 0.5;
+
+    // 1. Header
+    drawStepPill(ctx, cx, 134, "STEP 02", springProgress(t, { delay: 0.02, duration: 0.50 }));
+    drawBlurRevealText(ctx, "Keep the timing. Free the visuals.", cx, 246, smoothstep(0.06, 0.72, t), {
+      font: `800 76px ${SANS_FONT}`,
+      color: "#18181b",
+      maxBlur: 18,
+      liftPx: 18,
+    });
+    drawBlurRevealText(ctx, "KineArc separates motion curves from sound & cuts.", cx, 306, smoothstep(0.22, 0.88, t), {
+      font: `500 25px ${SANS_FONT}`,
+      color: "#52525b",
+      maxBlur: 10,
+      liftPx: 12,
+    });
+
+    // 2. Smooth 3D-staggered parting of the single clip into 2 clean porcelain layers
+    const splitP = easeInOutCubic(smoothstep(0.32, 1.15, t));
+    const floatL = Math.sin(t * 1.55) * 5.5;
+    const floatR = Math.sin(t * 1.55 + 1.45) * 5.5;
+
+    const leftX = lerp(cx - 24, 608, splitP);
+    const leftY = lerp(590, 584, splitP) + floatL;
+    const rightX = lerp(cx + 24, 1312, splitP);
+    const rightY = lerp(590, 626, splitP) + floatR;
+
+    const leftBop = smoothstep(1.60, 2.02, t);
+    const rightBop = smoothstep(2.70, 3.12, t);
+    const leftHL = smoothstep(1.50, 1.70, t) * (1 - smoothstep(2.35, 2.75, t)) + smoothstep(3.25, 3.60, t) * 0.65;
+    const rightHL = smoothstep(2.60, 2.80, t) * (1 - smoothstep(3.20, 3.55, t)) + smoothstep(3.25, 3.60, t) * 0.65;
+
+    // Subtle bridging golden & violet arcs once separated
+    drawBridgingArcs(ctx, leftX, leftY, rightX, rightY, t, smoothstep(0.70, 1.25, t));
+
+    // Draw right card first so left card sits slightly forward in depth, then swap emphasis on right click
+    const leftRot = lerp(0.025, -0.012, splitP);
+    const rightRot = lerp(-0.025, 0.012, splitP);
+    const entryScale = lerp(0.90, 1.0, springProgress(t, { delay: 0.08, duration: 0.65 }));
+
+    drawSoundCard(ctx, rightX, rightY, {
+      t,
+      scale: entryScale * lerp(0.95, 1.0, splitP),
+      rot: rightRot,
+      alpha: smoothstep(0.36, 0.78, t),
+      highlight: clamp01(rightHL),
+      bopProgress: rightBop > 0 && rightBop < 1 ? rightBop : 0,
+    });
+
+    drawMotionCard(ctx, leftX, leftY, {
+      t,
+      scale: entryScale,
+      rot: leftRot,
+      alpha: smoothstep(0.02, 0.28, t),
+      highlight: clamp01(leftHL),
+      bopProgress: leftBop > 0 && leftBop < 1 ? leftBop : 0,
+    });
+
+    // 3. Tactile Cursor clicking Left (t=1.60s) then Right (t=2.70s)
+    const pLeftTarget = [leftX + 68, leftY - 22];
+    const pRightTarget = [rightX - 42, rightY - 12];
+    let curX = 960;
+    let curY = 920;
+    let curAlpha = 0;
+
+    if (t >= 0.85 && t < 1.60) {
+      const p = easeOutCubic(smoothstep(0.85, 1.54, t));
+      curX = lerp(880, pLeftTarget[0], p);
+      curY = lerp(860, pLeftTarget[1], p);
+      curAlpha = smoothstep(0.85, 1.08, t);
+    } else if (t >= 1.60 && t < 2.70) {
+      const p = easeInOutCubic(smoothstep(1.90, 2.64, t));
+      const arc = Math.sin(p * Math.PI) * -48;
+      curX = lerp(pLeftTarget[0], pRightTarget[0], p);
+      curY = lerp(pLeftTarget[1], pRightTarget[1], p) + arc;
+      curAlpha = 1;
+    } else if (t >= 2.70) {
+      const p = easeOutCubic(smoothstep(2.95, 3.70, t));
+      curX = lerp(pRightTarget[0], 1460, p);
+      curY = lerp(pRightTarget[1], 850, p);
+      curAlpha = 1 - smoothstep(3.55, 4.10, t);
+    }
+
+    if (curAlpha > 0.01) {
+      const pressed = (t >= 1.56 && t <= 1.69) || (t >= 2.66 && t <= 2.79);
+      let clickProg = 0;
+      if (t >= 1.60 && t < 2.15) clickProg = smoothstep(1.60, 2.12, t);
+      else if (t >= 2.70 && t < 3.25) clickProg = smoothstep(2.70, 3.22, t);
+
+      ctx.save();
+      ctx.globalAlpha = curAlpha;
+      drawTactileCursor(ctx, curX, curY, {
+        pressed,
+        clickProgress: clickProg,
+        color: "#ffffff",
+        accent: t >= 2.50 ? "#0ea5e9" : "#7c3aed",
+      });
+      ctx.restore();
+    }
+
+    drawFilmGrain(ctx, W, H, t, 0.020);
+  },
+});
+</script>
+</body>
+</html>

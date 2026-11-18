@@ -1,57 +1,132 @@
 [
   {
-    "file": "sfx/whoosh.wav",
-    "time": 0.05,
-    "volume": 0.75
+    "file": "sfx/harmonic_swell.wav",
+    "time": 0.41,
+    "volume": 0.78
   },
   {
-    "file": "sfx/lock.wav",
+    "file": "sfx/crystal_glint.wav",
     "time": 0.85,
-    "volume": 0.8
+    "volume": 0.72
   },
   {
-    "file": "sfx/whoosh.wav",
-    "time": 2.95,
-    "volume": 0.75
-  },
-  {
-    "file": "sfx/click.wav",
-    "time": 4.1,
-    "volume": 0.65
-  },
-  {
-    "file": "sfx/whoosh.wav",
-    "time": 5.95,
-    "volume": 0.75
-  },
-  {
-    "file": "sfx/lock.wav",
-    "time": 8.2,
-    "volume": 0.85
-  },
-  {
-    "file": "sfx/click.wav",
-    "time": 9.6,
+    "file": "sfx/ui_tap.wav",
+    "time": 1.45,
     "volume": 0.7
   },
   {
-    "file": "sfx/lock.wav",
-    "time": 11.4,
-    "volume": 0.75
+    "file": "sfx/crystal_glint.wav",
+    "time": 2.58,
+    "volume": 0.72
   },
   {
-    "file": "sfx/riser.wav",
-    "time": 11.9,
+    "file": "sfx/key_clack_01.wav",
+    "time": 2.9,
+    "volume": 0.58
+  },
+  {
+    "file": "sfx/key_clack_02.wav",
+    "time": 3.034,
+    "volume": 0.53
+  },
+  {
+    "file": "sfx/key_clack_03.wav",
+    "time": 3.188,
+    "volume": 0.6
+  },
+  {
+    "file": "sfx/key_clack_01.wav",
+    "time": 3.316,
+    "volume": 0.55
+  },
+  {
+    "file": "sfx/key_clack_02.wav",
+    "time": 3.465,
+    "volume": 0.57
+  },
+  {
+    "file": "sfx/key_clack_03.wav",
+    "time": 3.593,
+    "volume": 0.52
+  },
+  {
+    "file": "sfx/harmonic_swell.wav",
+    "time": 3.78,
+    "volume": 0.78
+  },
+  {
+    "file": "sfx/ui_tap.wav",
+    "time": 4.15,
+    "volume": 0.7
+  },
+  {
+    "file": "sfx/ui_tap.wav",
+    "time": 4.38,
+    "volume": 0.7
+  },
+  {
+    "file": "sfx/glass_ping.wav",
+    "time": 4.62,
+    "volume": 0.74
+  },
+  {
+    "file": "sfx/crystal_glint.wav",
+    "time": 5.62,
+    "volume": 0.72
+  },
+  {
+    "file": "sfx/ui_tap.wav",
+    "time": 6.24,
+    "volume": 0.7
+  },
+  {
+    "file": "sfx/crystal_glint.wav",
+    "time": 6.86,
+    "volume": 0.72
+  },
+  {
+    "file": "sfx/glass_ping.wav",
+    "time": 7.48,
+    "volume": 0.74
+  },
+  {
+    "file": "sfx/portal_drop.wav",
+    "time": 8.205,
+    "volume": 0.86
+  },
+  {
+    "file": "sfx/harmonic_swell.wav",
+    "time": 8.91,
+    "volume": 0.78
+  },
+  {
+    "file": "sfx/warm_riser.wav",
+    "time": 9.4,
     "volume": 0.65
   },
   {
-    "file": "sfx/lock.wav",
-    "time": 14.8,
-    "volume": 0.85
+    "file": "sfx/bloom_chime.wav",
+    "time": 10.03,
+    "volume": 0.82
   },
   {
-    "file": "sfx/chord_hit.wav",
-    "time": 15.55,
-    "volume": 0.9
+    "file": "sfx/ui_tap.wav",
+    "time": 10.78,
+    "volume": 0.7
+  },
+  {
+    "file": "sfx/crystal_glint.wav",
+    "time": 11.18,
+    "volume": 0.72
+  },
+  {
+    "file": "sfx/analog_chord.wav",
+    "time": 11.6,
+    "volume": 0.86
+  },
+  {
+    "file": "sfx/glass_ping.wav",
+    "time": 12.05,
+    "volume": 0.74
   }
 ]

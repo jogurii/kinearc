@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>KineArc Tutorial — 03 Re-Theme in 3D</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #f6f7fb;
+    }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+import {
+  clamp01,
+  easeInOutCubic,
+  easeOutCubic,
+  lerp,
+  smoothstep,
+  springProgress,
+  createCrystalMesh,
+  createTorusKnotMesh,
+  roundRectPath,
+  drawCraftBackdrop,
+  drawBlurRevealText,
+  drawPearlCard,
+  drawTactileCursor,
+  drawFilmGrain,
+  registerScene,
+} from "./kinearc-gl3d.js";
+
+const TOTAL = 4.5;
+const SANS_FONT = '"Inter", "SF Pro Display", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif';
+
+// @cue 0.15 swish volume=0.72
+// @cue 1.00 glint volume=0.78
+// @cue 1.02 latch volume=0.80
+// @cue 2.10 glint volume=0.78
+// @cue 2.12 latch volume=0.80
+// @cue 3.20 glint volume=0.80
+// @cue 3.25 bloom volume=0.84
+
+const crystalMesh = createCrystalMesh(8, 0.82, 1.88, 0.24);
+const knotMesh = createTorusKnotMesh(1.16, 0.135, 2, 3, 140, 14);
+
+const THEMES = [
+  {
+    name: "Reference Look",
+    crystalColor: [0.46, 0.49, 0.56],
+    knotColor: [0.28, 0.31, 0.38],
+    keyColor: [0.62, 0.64, 0.70],
+    fillColor: [0.40, 0.46, 0.58],
+    emissive: [0.004, 0.005, 0.01],
+    roughness: 0.62,
+    metallic: 0.25,
+    poolHex: "rgba(148, 163, 184, 0.16)",
+  },
+  {
+    name: "Pearl Violet",
+    crystalColor: [0.48, 0.26, 0.92],
+    knotColor: [0.68, 0.64, 0.94],
+    keyColor: [0.62, 0.54, 0.78],
+    fillColor: [0.30, 0.62, 0.92],
+    emissive: [0.02, 0.008, 0.05],
+    roughness: 0.38,
+    metallic: 0.74,
+    poolHex: "rgba(167, 139, 250, 0.28)",
+  },
+  {
+    name: "Midnight Gold",
+    crystalColor: [0.86, 0.54, 0.12],
+    knotColor: [0.16, 0.16, 0.20],
+    keyColor: [0.74, 0.58, 0.30],
+    fillColor: [0.32, 0.46, 0.72],
+    emissive: [0.03, 0.015, 0.002],
+    roughness: 0.36,
+    metallic: 0.80,
+    poolHex: "rgba(245, 158, 11, 0.26)",
+  },
+  {
+    name: "Warm Coral",
+    crystalColor: [0.90, 0.26, 0.24],
+    knotColor: [0.80, 0.50, 0.42],
+    keyColor: [0.72, 0.50, 0.44],
+    fillColor: [0.56, 0.32, 0.78],
+    emissive: [0.04, 0.01, 0.014],
+    roughness: 0.36,
+    metallic: 0.76,
+    poolHex: "rgba(251, 113, 133, 0.28)",
+  },
+];
+
+const SWATCHES = [
+  { label: "Pearl Violet", c0: "#7c3aed", c1: "#ddd6fe", accent: "#7c3aed", clickT: 1.00 },
+  { label: "Midnight Gold", c0: "#f59e0b", c1: "#27272a", accent: "#f59e0b", clickT: 2.10 },
+  { label: "Warm Coral", c0: "#f97316", c1: "#fb7185", accent: "#fb7185", clickT: 3.20 },
+];
+
+function lerpVec3(a, b, k) {
+  return [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
+}
+
+function getBlendedTheme(t) {
+  let active = THEMES[0];
+  let idx = 0;
+  let trans = 1;
+  let prev = THEMES[0];
+
+  if (t >= 3.20) {
+    idx = 3;
+    prev = THEMES[2];
+    active = THEMES[3];
+    trans = easeOutCubic(smoothstep(3.20, 3.44, t));
+  } else if (t >= 2.10) {
+    idx = 2;
+    prev = THEMES[1];
+    active = THEMES[2];
+    trans = easeOutCubic(smoothstep(2.10, 2.34, t));
+  } else if (t >= 1.00) {
+    idx = 1;
+    prev = THEMES[0];
+    active = THEMES[1];
+    trans = easeOutCubic(smoothstep(1.00, 1.24, t));
+  }
+
+  return {
+    idx,
+    name: active.name,
+    poolHex: active.poolHex,
+    crystalColor: lerpVec3(prev.crystalColor, active.crystalColor, trans),
+    knotColor: lerpVec3(prev.knotColor, active.knotColor, trans),
+    keyColor: lerpVec3(prev.keyColor, active.keyColor, trans),
+    fillColor: lerpVec3(prev.fillColor, active.fillColor, trans),
+    emissive: lerpVec3(prev.emissive, active.emissive, trans),
+    roughness: lerp(prev.roughness, active.roughness, trans),
+    metallic: lerp(prev.metallic, active.metallic, trans),
+  };
+}
+
+function drawSwatchPill(ctx, x, y, w, h, swatch, {
+  selected = false,
+  bopP = 0,
+  alpha = 1,
+} = {}) {
+  if (alpha <= 0.01) return;
+  const bop = bopP > 0 && bopP < 1 ? 1 + 0.055 * Math.sin(bopP * Math.PI) : 1;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x + w * 0.5, y + h * 0.5);
+  ctx.scale(bop, bop);
+
+  drawPearlCard(ctx, -w * 0.5, -h * 0.5, w, h, {
+    radius: 24,
+    bg: selected ? "rgba(255, 255, 255, 0.99)" : "rgba(255, 255, 255, 0.86)",
+    border: "rgba(24, 24, 27, 0.09)",
+    activeBorder: selected ? swatch.accent : null,
+    activeGlow: selected ? `${swatch.accent}38` : null,
+    shadowBlur: selected ? 34 : 20,
+  });
+
+  // Dual-tone circular material swatch orb
+  const orbX = -w * 0.5 + 42;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(orbX, 0, 19, 0, Math.PI * 2);
+  const orbGrad = ctx.createLinearGradient(orbX - 18, -18, orbX + 18, 18);
+  orbGrad.addColorStop(0, swatch.c0);
+  orbGrad.addColorStop(1, swatch.c1);
+  ctx.fillStyle = orbGrad;
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#ffffff";
+  ctx.stroke();
+  ctx.restore();
+
+  // Swatch title
+  ctx.font = `${selected ? 700 : 600} 23px ${SANS_FONT}`;
+  ctx.fillStyle = selected ? "#18181b" : "#3f3f46";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(swatch.label, -w * 0.5 + 80, 1);
+
+  // Clean active dot on right
+  if (selected) {
+    ctx.beginPath();
+    ctx.arc(w * 0.5 - 30, 0, 6, 0, Math.PI * 2);
+    ctx.fillStyle = swatch.accent;
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+registerScene({
+  width: 1920,
+  height: 1080,
+  fps: 60,
+  totalDuration: TOTAL,
+  onFrame({ ctx, gl, W, H, t }) {
+    // 1. Light Pearl backdrop + smooth split into Velvet Midnight (#090814) on the right
+    drawCraftBackdrop(ctx, W, H, t, {
+      theme: "pearl",
+      warmPool: "rgba(167, 139, 250, 0.12)",
+      coolPool: "rgba(56, 189, 248, 0.09)",
+      showCrosshairs: false,
+    });
+
+    const splitGrad = ctx.createLinearGradient(W * 0.405, 0, W * 0.432, 0);
+    splitGrad.addColorStop(0, "rgba(9, 8, 20, 0)");
+    splitGrad.addColorStop(0.55, "rgba(18, 15, 38, 0.82)");
+    splitGrad.addColorStop(1, "#090814");
+    ctx.fillStyle = splitGrad;
+    ctx.fillRect(W * 0.40, 0, W * 0.60, H);
+
+    // Delicate luminous violet bridge highlight along split seam
+    const seamGlow = ctx.createLinearGradient(W * 0.405, 0, W * 0.435, 0);
+    seamGlow.addColorStop(0, "rgba(167, 139, 250, 0)");
+    seamGlow.addColorStop(0.5, "rgba(167, 139, 250, 0.16)");
+    seamGlow.addColorStop(1, "rgba(167, 139, 250, 0)");
+    ctx.fillStyle = seamGlow;
+    ctx.fillRect(W * 0.40, 0, W * 0.04, H);
+
+    // Subtle right midnight depth gradient
+    const nightGrad = ctx.createRadialGradient(W * 0.70, H * 0.46, 40, W * 0.70, H * 0.48, 720);
+    nightGrad.addColorStop(0, "rgba(30, 24, 58, 0.45)");
+    nightGrad.addColorStop(1, "rgba(9, 8, 20, 0)");
+    ctx.fillStyle = nightGrad;
+    ctx.fillRect(W * 0.43, 0, W * 0.57, H);
+
+    // 2. Left Light Column (0..42% width)
+    const leftX = 128;
+    const kickP = springProgress(t, { delay: 0.04, duration: 0.50 });
+    if (kickP > 0.01) {
+      ctx.save();
+      ctx.globalAlpha = kickP;
+      ctx.font = `700 14px ${SANS_FONT}`;
+      const kw = ctx.measureText("STEP 03").width + 32;
+      roundRectPath(ctx, leftX, 146, kw, 32, 16);
+      ctx.fillStyle = "rgba(124, 58, 237, 0.10)";
+      ctx.fill();
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = "rgba(124, 58, 237, 0.25)";
+      ctx.stroke();
+      ctx.fillStyle = "#6d28d9";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText("STEP 03", leftX + 16, 162.5);
+      ctx.restore();
+    }
+
+    drawBlurRevealText(ctx, "Make the look", leftX, 276, smoothstep(0.08, 0.72, t), {
+      font: `800 72px ${SANS_FONT}`,
+      color: "#18181b",
+      align: "left",
+      maxBlur: 16,
+      liftPx: 18,
+    });
+    drawBlurRevealText(ctx, "100% yours.", leftX, 360, smoothstep(0.18, 0.84, t), {
+      font: `800 72px ${SANS_FONT}`,
+      color: "#18181b",
+      align: "left",
+      maxBlur: 16,
+      liftPx: 18,
+    });
+
+    // 3 sleek minimal style swatch pills stacked with generous breathing room
+    const activeSwatchIdx = t >= 3.20 ? 2 : t >= 2.10 ? 1 : t >= 1.00 ? 0 : -1;
+    const pillW = 420;
+    const pillH = 82;
+    const pillGap = 28;
+    const pillStartY = 468;
+
+    SWATCHES.forEach((sw, i) => {
+      const py = pillStartY + i * (pillH + pillGap);
+      const enterA = smoothstep(0.20 + i * 0.10, 0.60 + i * 0.10, t);
+      const bopP = smoothstep(sw.clickT, sw.clickT + 0.34, t);
+      drawSwatchPill(ctx, leftX, py, pillW, pillH, sw, {
+        selected: activeSwatchIdx === i,
+        bopP: bopP > 0 && bopP < 1 ? bopP : 0,
+        alpha: enterA,
+      });
+    });
+
+    // 3. Right 3D Stage (45%..95% width) — Rounded Dark-Glass Viewport + WebGL2 PBR
+    const vx = Math.round(W * 0.45);
+    const vy = 132;
+    const vw = Math.round(W * 0.50);
+    const vh = 736;
+    const vcx = vx + vw * 0.5;
+    const vcy = vy + vh * 0.5;
+    const stageReveal = springProgress(t, { delay: 0.12, duration: 0.65, damping: 16, stiffness: 170 });
+
+    const theme = getBlendedTheme(t);
+    // Exact continuous rhythmic bounce wave across all theme swaps
+    const bounceY = Math.abs(Math.sin(t * Math.PI * 1.35)) * 0.42 - 0.10;
+    const scalePulse = 1.0
+      + (t >= 1.00 ? 0.055 * Math.sin(clamp01((t - 1.00) / 0.28) * Math.PI) : 0)
+      + (t >= 2.10 ? 0.055 * Math.sin(clamp01((t - 2.10) / 0.28) * Math.PI) : 0)
+      + (t >= 3.20 ? 0.065 * Math.sin(clamp01((t - 3.20) / 0.30) * Math.PI) : 0);
+
+    // Draw dark-glass viewport shell
+    ctx.save();
+    ctx.globalAlpha = clamp01(stageReveal * 1.15);
+    ctx.shadowColor = "rgba(0, 0, 0, 0.58)";
+    ctx.shadowBlur = 46;
+    ctx.shadowOffsetY = 18;
+    roundRectPath(ctx, vx, vy, vw, vh, 32);
+    const glassGrad = ctx.createLinearGradient(vx, vy, vx, vy + vh);
+    glassGrad.addColorStop(0, "rgba(22, 19, 42, 0.90)");
+    glassGrad.addColorStop(1, "rgba(10, 9, 22, 0.96)");
+    ctx.fillStyle = glassGrad;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    // Clipped interior: volumetric color pool + subtle glass reflection plane + WebGL2 PBR Sculpture
+    ctx.save();
+    roundRectPath(ctx, vx, vy, vw, vh, 32);
+    ctx.clip();
+
+    const pool = ctx.createRadialGradient(vcx, vcy - 30, 20, vcx, vcy - 30, 390);
+    pool.addColorStop(0, theme.poolHex);
+    pool.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = pool;
+    ctx.fillRect(vx, vy, vw, vh);
+
+    // Subtle glass floor reflection horizon inside viewport
+    const floorLineY = vy + vh * 0.72;
+    const floorGrad = ctx.createLinearGradient(vx, floorLineY, vx, vy + vh);
+    floorGrad.addColorStop(0, "rgba(255, 255, 255, 0.045)");
+    floorGrad.addColorStop(0.25, "rgba(6, 5, 14, 0.38)");
+    floorGrad.addColorStop(1, "rgba(4, 3, 10, 0.78)");
+    ctx.fillStyle = floorGrad;
+    ctx.fillRect(vx, floorLineY, vw, vy + vh - floorLineY);
+
+    if (gl) {
+      gl.render({
+        cameraPos: [0, 0.82, 7.15],
+        cameraTarget: [0, -0.30, 0],
+        fovDeg: 38,
+        keyColor: theme.keyColor,
+        fillColor: theme.fillColor,
+        floorY: -1.35,
+        reflectionAlpha: 0.24,
+        objects: [
+          {
+            mesh: crystalMesh,
+            pos: [0, bounceY, 0],
+            rot: [0.16, t * 1.05, 0.08 * Math.sin(t * 1.4)],
+            scale: 0.78 * scalePulse,
+            color: theme.crystalColor,
+            emissive: theme.emissive,
+            roughness: theme.roughness,
+            metallic: theme.metallic,
+          },
+          {
+            mesh: knotMesh,
+            pos: [0, bounceY, 0],
+            rot: [0.55 + t * 0.42, t * 0.78, 0.24],
+            scale: 0.71 * scalePulse,
+            color: theme.knotColor,
+            emissive: [theme.emissive[0] * 0.45, theme.emissive[1] * 0.45, theme.emissive[2] * 0.45],
+            roughness: Math.max(0.18, theme.roughness * 0.92),
+            metallic: Math.min(0.92, theme.metallic + 0.04),
+          },
+        ],
+      });
+      ctx.drawImage(gl.canvas, vcx - W * 0.5, vcy - H * 0.5, W, H);
+    }
+
+    // Minimal current-style indicator pill in top-left of viewport
+    ctx.font = `600 15px ${SANS_FONT}`;
+    const tagW = ctx.measureText(theme.name).width + 32;
+    roundRectPath(ctx, vx + 28, vy + 26, tagW, 34, 17);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.14)";
+    ctx.stroke();
+    ctx.fillStyle = "rgba(244, 244, 245, 0.90)";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(theme.name, vx + 44, vy + 43.5);
+
+    ctx.restore();
+
+    // Outer glass rim + top specular edge catch
+    roundRectPath(ctx, vx, vy, vw, vh, 32);
+    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+    ctx.stroke();
+
+    const topHighlight = ctx.createLinearGradient(vx + 32, vy, vx + vw - 32, vy);
+    topHighlight.addColorStop(0, "rgba(255, 255, 255, 0)");
+    topHighlight.addColorStop(0.5, "rgba(255, 255, 255, 0.28)");
+    topHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+    ctx.strokeStyle = topHighlight;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(vx + 32, vy + 0.8);
+    ctx.lineTo(vx + vw - 32, vy + 0.8);
+    ctx.stroke();
+    ctx.restore();
+
+    // Minimal caption below viewport
+    drawBlurRevealText(ctx, "Same bounce. New world.", vcx, 932, smoothstep(0.30, 0.95, t), {
+      font: `600 25px ${SANS_FONT}`,
+      color: "rgba(244, 244, 245, 0.86)",
+      maxBlur: 8,
+      liftPx: 10,
+    });
+
+    // 4. Cursor clicking swatch 1 (1.00s), swatch 2 (2.10s), swatch 3 (3.20s)
+    const targetPos = (i) => [leftX + pillW * 0.72, pillStartY + i * (pillH + pillGap) + pillH * 0.5];
+    const p0 = targetPos(0);
+    const p1 = targetPos(1);
+    const p2 = targetPos(2);
+
+    let curX = p0[0];
+    let curY = p0[1];
+    let curAlpha = 0;
+
+    if (t >= 0.35 && t < 1.00) {
+      const p = easeOutCubic(smoothstep(0.35, 0.94, t));
+      curX = lerp(p0[0] + 120, p0[0], p);
+      curY = lerp(820, p0[1], p);
+      curAlpha = smoothstep(0.35, 0.60, t);
+    } else if (t >= 1.00 && t < 2.10) {
+      const p = easeInOutCubic(smoothstep(1.38, 2.02, t));
+      curX = lerp(p0[0], p1[0], p);
+      curY = lerp(p0[1], p1[1], p);
+      curAlpha = 1;
+    } else if (t >= 2.10 && t < 3.20) {
+      const p = easeInOutCubic(smoothstep(2.48, 3.12, t));
+      curX = lerp(p1[0], p2[0], p);
+      curY = lerp(p1[1], p2[1], p);
+      curAlpha = 1;
+    } else if (t >= 3.20) {
+      const p = easeOutCubic(smoothstep(3.52, 4.15, t));
+      curX = lerp(p2[0], p2[0] + 150, p);
+      curY = lerp(p2[1], 880, p);
+      curAlpha = 1 - smoothstep(3.90, 4.35, t);
+    }
+
+    if (curAlpha > 0.01) {
+      const pressed = (t >= 0.96 && t <= 1.08) || (t >= 2.06 && t <= 2.18) || (t >= 3.16 && t <= 3.28);
+      let clickProg = 0;
+      let accent = "#7c3aed";
+      if (t >= 1.00 && t < 1.55) {
+        clickProg = smoothstep(1.00, 1.50, t);
+        accent = "#7c3aed";
+      } else if (t >= 2.10 && t < 2.65) {
+        clickProg = smoothstep(2.10, 2.60, t);
+        accent = "#f59e0b";
+      } else if (t >= 3.20 && t < 3.75) {
+        clickProg = smoothstep(3.20, 3.70, t);
+        accent = "#fb7185";
+      }
+
+      ctx.save();
+      ctx.globalAlpha = curAlpha;
+      drawTactileCursor(ctx, curX, curY, {
+        pressed,
+        clickProgress: clickProg,
+        color: "#ffffff",
+        accent,
+      });
+      ctx.restore();
+    }
+
+    drawFilmGrain(ctx, W, H, t, 0.026);
+  },
+});
+</script>
+</body>
+</html>

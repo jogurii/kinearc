@@ -3,16 +3,15 @@
   "width": 1920,
   "height": 1080,
   "scenes": [
-    { "path": "scenes/01_intro_problem.html", "duration": 5.0 },
-    { "path": "scenes/02_step1_extract.html", "duration": 6.0 },
-    { "path": "scenes/03_step2_author_3d.html", "duration": 6.0 },
-    { "path": "scenes/04_step3_workbench_review.html", "duration": 7.0 },
-    { "path": "scenes/05_step4_export_4k.html", "duration": 6.0 }
+    { "path": "scenes/01_drop_reference.html", "duration": 4.5 },
+    { "path": "scenes/02_extract_feel.html", "duration": 4.5 },
+    { "path": "scenes/03_retheme_3d.html", "duration": 4.5 },
+    { "path": "scenes/04_export_ready.html", "duration": 4.5 }
   ],
   "audio": {
     "bgm": "audio/bgm.wav",
+    "bgm_vol": 0.15,
     "sfx": "audio/cues.json",
-    "bgm_vol": 0.42,
-    "fade_out": 1.6
+    "fade_out": 1.4
   }
 }

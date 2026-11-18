@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KineArc — Midnight 3D Portal</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #05040c;
+    }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+import {
+  clamp01,
+  lerp,
+  smoothstep,
+  easeOutCubic,
+  springProgress,
+  createCrystalMesh,
+  createTorusKnotMesh,
+  drawCraftBackdrop,
+  drawBlurRevealText,
+  drawPortalFlash,
+  drawFilmGrain,
+  registerScene,
+} from "./kinearc-gl3d.js";
+
+const knotMesh = createTorusKnotMesh(1.06, 0.17, 2, 3, 140, 16);
+const coreMesh = createCrystalMesh(8, 0.56, 1.32, 0.26);
+const FONT_FAMILY = '"Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+
+function drawDiamondStar(ctx, x, y, r, alpha) {
+  if (alpha <= 0.01) return;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = "#f4f4f5";
+  ctx.shadowColor = "rgba(196, 181, 253, 0.85)";
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  ctx.moveTo(0, -r);
+  ctx.quadraticCurveTo(0, 0, r, 0);
+  ctx.quadraticCurveTo(0, 0, 0, r);
+  ctx.quadraticCurveTo(0, 0, -r, 0);
+  ctx.quadraticCurveTo(0, 0, 0, -r);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+registerScene({
+  totalDuration: 2.4,
+  responsive: true,
+  onFrame({ ctx, gl, W, H, t }) {
+    const isPortrait = H > W;
+    const cx = W * 0.5;
+    const cy = isPortrait ? H * 0.45 : H * 0.47;
+
+    drawCraftBackdrop(ctx, W, H, t, {
+      theme: "midnight",
+      warmPool: "rgba(139, 92, 246, 0.22)",
+      coolPool: "rgba(236, 72, 153, 0.14)",
+      showCrosshairs: false,
+    });
+
+    // @cue 0.02 portal
+    // @cue 0.75 swell
+    // @cue 1.20 riser volume=0.65
+    // @cue 1.85 bloom
+
+    // Soft ambient radial iris behind 3D sculpture
+    const pulse = 1.0 + 0.055 * Math.sin(t * 3.1);
+    const enterP = springProgress(t, { delay: 0.0, duration: 0.82, damping: 14, stiffness: 165 });
+
+    ctx.save();
+    const auraR = (isPortrait ? 340 : 400) * pulse;
+    const aura = ctx.createRadialGradient(cx, cy, 12, cx, cy, auraR);
+    aura.addColorStop(0, "rgba(167, 139, 250, 0.26)");
+    aura.addColorStop(0.45, "rgba(236, 72, 153, 0.09)");
+    aura.addColorStop(1, "rgba(5, 4, 12, 0)");
+    ctx.fillStyle = aura;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+
+    if (gl) {
+      const camZ = lerp(isPortrait ? 8.8 : 6.7, isPortrait ? 7.8 : 5.8, smoothstep(0.0, 2.2, t));
+      const sculptureScale = lerp(0.72, isPortrait ? 0.84 : 0.88, enterP) * pulse;
+      gl.render({
+        cameraPos: [0, 0.36, camZ],
+        cameraTarget: [0, -0.32, 0],
+        fovDeg: 41,
+        keyColor: [0.96, 0.86, 0.98],
+        fillColor: [0.54, 0.46, 0.98],
+        floorY: -1.45,
+        reflectionAlpha: 0.16,
+        objects: [
+          {
+            mesh: knotMesh,
+            pos: [0, 0.20, 0],
+            rot: [0.42 + t * 0.58, t * 1.15, 0.22],
+            scale: sculptureScale,
+            color: [0.92, 0.68, 0.96],
+            emissive: [0.10, 0.05, 0.12],
+            roughness: 0.18,
+            metallic: 0.72,
+          },
+          {
+            mesh: coreMesh,
+            pos: [0, 0.20, 0],
+            rot: [-0.25, -t * 1.65, 0.18],
+            scale: sculptureScale * (1.0 + 0.06 * Math.sin(t * 5.2)),
+            color: [0.55, 0.44, 0.98],
+            emissive: [0.09, 0.05, 0.22],
+            roughness: 0.28,
+            metallic: 0.12,
+          },
+        ],
+      });
+      ctx.drawImage(gl.canvas, 0, 0, W, H);
+    }
+
+    // 8 tiny diamond stars orbiting softly around sculpture
+    const orbitRx = isPortrait ? 335 : 435;
+    const orbitRy = isPortrait ? 185 : 210;
+    for (let i = 0; i < 8; i++) {
+      const a0 = (i / 8) * Math.PI * 2;
+      const tilt = (i % 2 === 0 ? 0.26 : -0.22);
+      const speed = i % 2 === 0 ? 0.68 : -0.54;
+      const a = a0 + t * speed;
+      const lx = Math.cos(a) * orbitRx * (0.94 + (i % 3) * 0.09);
+      const ly = Math.sin(a) * orbitRy * (0.92 + (i % 2) * 0.12);
+      const rx = lx * Math.cos(tilt) - ly * Math.sin(tilt);
+      const ry = lx * Math.sin(tilt) + ly * Math.cos(tilt);
+      const twinkle = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t * 4.5 + i * 1.7));
+      const size = (6.5 + (i % 3) * 2.5) * (0.85 + 0.15 * twinkle);
+      drawDiamondStar(ctx, cx + rx, (isPortrait ? H * 0.415 : H * 0.425) + ry, size, twinkle * clamp01(t / 0.35));
+    }
+
+    // Light->Dark soft opening vignette transition from Scene 03 pearl
+    if (t < 0.28) {
+      const openP = easeOutCubic(t / 0.28);
+      ctx.save();
+      const holeR = Math.max(W, H) * lerp(0.05, 0.95, openP);
+      const veil = ctx.createRadialGradient(cx, cy, holeR * 0.45, cx, cy, Math.max(W, H) * 0.95);
+      veil.addColorStop(0, `rgba(246, 247, 251, ${(0.82 * (1 - openP)).toFixed(3)})`);
+      veil.addColorStop(1, `rgba(246, 247, 251, ${(0.35 * (1 - openP)).toFixed(3)})`);
+      ctx.fillStyle = veil;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
+    // Pulse status copy ("Crafting your scene...") at t=0.35..1.65s
+    const textY = isPortrait ? H * 0.675 : H * 0.715;
+    if (t >= 0.32 && t <= 1.72) {
+      const inP = clamp01((t - 0.35) / 0.28);
+      const outP = t > 1.46 ? clamp01((t - 1.46) / 0.22) : 0;
+      const pulseAlpha = 0.78 + 0.22 * Math.sin(t * 5.0);
+      drawBlurRevealText(ctx, "Crafting your scene...", cx, textY, outP > 0 ? lerp(1, 0.3, outP) : inP, {
+        font: `500 ${isPortrait ? 34 : 30}px ${FONT_FAMILY}`,
+        color: "#e4e4e7",
+        align: "center",
+        maxBlur: 12,
+        liftPx: outP > 0 ? -8 : 12,
+        alpha: pulseAlpha * (1 - outP),
+      });
+    }
+
+    // Single crisp word "Ready." at t=1.74..2.35s
+    if (t >= 1.72) {
+      const readyP = clamp01((t - 1.72) / 0.22);
+      drawBlurRevealText(ctx, "Ready.", cx, textY, readyP, {
+        font: `700 ${isPortrait ? 78 : 70}px ${FONT_FAMILY}`,
+        color: "#ffffff",
+        align: "center",
+        maxBlur: 16,
+        liftPx: 14,
+      });
+    }
+
+    // Expanding circular portal bloom filling smoothly to luminous pearl #f6f7fb
+    if (t >= 1.85) {
+      const flashProg = smoothstep(1.85, 2.36, t);
+      drawPortalFlash(ctx, W, H, flashProg, {
+        cx,
+        cy,
+        color: "#f6f7fb",
+        coreColor: "#ffffff",
+        glowColor: "rgba(167, 139, 250, 0.55)",
+      });
+    }
+
+    drawFilmGrain(ctx, W, H, t, 0.032);
+  },
+});
+</script>
+</body>
+</html>

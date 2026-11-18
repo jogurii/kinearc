@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>kinearc v3.0 — 01 Hook 3D Prism</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KineArc — Hook 3D Prism</title>
   <style>
     html, body {
       margin: 0;
@@ -10,370 +11,163 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #06070c;
-    }
-    canvas {
-      display: block;
-      width: 100vw;
-      height: 100vh;
+      background: #f6f7fb;
     }
   </style>
 </head>
 <body>
-  <canvas id="c"></canvas>
-  <script type="module">
-    import {
-      registerScene,
-      createCrystalMesh,
-      createTorusMesh,
-      drawStageBackdrop,
-      drawDepthParticles,
-      drawGlassCard,
-      drawPill,
-      drawCornerHud,
-      springProgress,
-      easeOutCubic,
-      easeOutExpo,
-      smoothstep,
-      clamp01,
-      lerp,
-      mat4,
-    } from "./kinearc-gl3d.js";
+<canvas id="c"></canvas>
+<script type="module">
+import {
+  clamp01,
+  lerp,
+  easeOutCubic,
+  springProgress,
+  createCrystalMesh,
+  createTorusMesh,
+  drawCraftBackdrop,
+  drawBlurRevealText,
+  drawFilmGrain,
+  registerScene,
+} from "./kinearc-gl3d.js";
 
-    const UI_FONT = '"Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
-    const MONO_FONT = 'ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace';
+const crystalMesh = createCrystalMesh(8, 0.78, 2.16, 0.28);
+const ringMesh = createTorusMesh(1.44, 0.044, 72, 18);
+const FONT_FAMILY = '"Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 
-    const outerPrism = createCrystalMesh(8, 0.86, 2.15, 0.28);
-    const innerPrism = createCrystalMesh(6, 0.40, 1.32, 0.24);
-    const ringEmerald = createTorusMesh(1.32, 0.052, 72, 18);
-    const ringIndigo = createTorusMesh(1.68, 0.058, 72, 18);
-    const ringTitanium = createTorusMesh(2.04, 0.048, 84, 18);
-    const satCrystal = createCrystalMesh(4, 0.10, 0.28, 0.25);
+registerScene({
+  totalDuration: 2.4,
+  responsive: true,
+  onFrame({ ctx, gl, W, H, t }) {
+    const isPortrait = H > W;
 
-    function projectToScreen(pos, vp, W, H) {
-      const x = pos[0], y = pos[1], z = pos[2];
-      const cx = vp[0] * x + vp[4] * y + vp[8] * z + vp[12];
-      const cy = vp[1] * x + vp[5] * y + vp[9] * z + vp[13];
-      const cw = vp[3] * x + vp[7] * y + vp[11] * z + vp[15] || 1;
-      const nx = cx / cw;
-      const ny = cy / cw;
-      return [(nx * 0.5 + 0.5) * W, (0.5 - ny * 0.5) * H];
-    }
-
-    function drawAnamorphicFlare(ctx, x, y, width, intensity, t) {
-      ctx.save();
-      ctx.globalCompositeOperation = "screen";
-
-      // Soft indigo-emerald core bloom
-      const rad = ctx.createRadialGradient(x, y, 4, x, y, 360);
-      rad.addColorStop(0, `rgba(218, 232, 255, ${0.42 * intensity})`);
-      rad.addColorStop(0.25, `rgba(108, 140, 255, ${0.26 * intensity})`);
-      rad.addColorStop(0.55, `rgba(58, 210, 159, ${0.12 * intensity})`);
-      rad.addColorStop(1, "rgba(0, 0, 0, 0)");
-      ctx.fillStyle = rad;
-      ctx.beginPath();
-      ctx.arc(x, y, 360, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Primary wide anamorphic horizontal light streak
-      const halfW = width * 0.5;
-      const streak = ctx.createLinearGradient(x - halfW, y, x + halfW, y);
-      streak.addColorStop(0, "rgba(108, 140, 255, 0)");
-      streak.addColorStop(0.22, `rgba(108, 140, 255, ${0.24 * intensity})`);
-      streak.addColorStop(0.42, `rgba(58, 210, 159, ${0.55 * intensity})`);
-      streak.addColorStop(0.5, `rgba(248, 250, 252, ${0.95 * intensity})`);
-      streak.addColorStop(0.58, `rgba(130, 175, 255, ${0.55 * intensity})`);
-      streak.addColorStop(0.78, `rgba(108, 140, 255, ${0.24 * intensity})`);
-      streak.addColorStop(1, "rgba(108, 140, 255, 0)");
-
-      ctx.fillStyle = streak;
-      ctx.fillRect(x - halfW, y - 2.5, width, 5);
-
-      // Secondary upper/lower razor glint streaks
-      const subW = halfW * 0.62;
-      const subGrad = ctx.createLinearGradient(x - subW, y, x + subW, y);
-      subGrad.addColorStop(0, "rgba(255,255,255,0)");
-      subGrad.addColorStop(0.5, `rgba(255, 255, 255, ${0.72 * intensity})`);
-      subGrad.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = subGrad;
-      ctx.fillRect(x - subW, y - 0.8, subW * 2, 1.6);
-
-      // Subtle vertical diffraction spike
-      const vHalf = 140 + Math.sin(t * 2.5) * 14;
-      const vGrad = ctx.createLinearGradient(x, y - vHalf, x, y + vHalf);
-      vGrad.addColorStop(0, "rgba(108, 140, 255, 0)");
-      vGrad.addColorStop(0.5, `rgba(226, 232, 240, ${0.55 * intensity})`);
-      vGrad.addColorStop(1, "rgba(58, 210, 159, 0)");
-      ctx.fillStyle = vGrad;
-      ctx.fillRect(x - 1.5, y - vHalf, 3, vHalf * 2);
-
-      ctx.restore();
-    }
-
-    registerScene({
-      width: 1920,
-      height: 1080,
-      fps: 60,
-      totalDuration: 3.0,
-      onFrame({ ctx, gl, W, H, t, total }) {
-        drawStageBackdrop(ctx, W, H, t, {
-          accentA: "#6c8cff",
-          accentB: "#3ad29f",
-          gridAlpha: 0.09,
-        });
-
-        drawDepthParticles(ctx, W, H, t, 56);
-
-        // Orbital camera dolly in toward right-offset crystal prism
-        const dolly = easeOutExpo(clamp01(t / 1.35));
-        const tailPush = smoothstep(2.65, 3.0, t);
-        const orbitAngle = lerp(-0.56, 0.22, easeOutCubic(t / total));
-        const camDist = lerp(9.8, 6.55, dolly) - t * 0.10 - tailPush * 0.9;
-        const camY = lerp(2.1, 0.65, dolly) + Math.sin(t * 1.15) * 0.10;
-        const cameraPos = [
-          Math.sin(orbitAngle) * camDist - 0.65,
-          camY,
-          Math.cos(orbitAngle) * camDist,
-        ];
-        const cameraTarget = [-1.42, -0.02, 0];
-        const fovDeg = 41 - tailPush * 4;
-
-        const proj = mat4.perspective((fovDeg * Math.PI) / 180, W / H, 0.1, 80);
-        const view = mat4.lookAt(cameraPos, cameraTarget);
-        const vp = mat4.multiply(proj, view);
-        const [prismScreenX, prismScreenY] = projectToScreen([0, 0, 0], vp, W, H);
-
-        // Back-glow behind 3D prism
-        const lockFlash = Math.exp(-Math.pow((t - 0.85) * 5.2, 2));
-        const introPop = springProgress(t, { delay: 0.02, duration: 0.72, damping: 14, stiffness: 185 });
-        const flareIntensity = 0.68 + 0.55 * lockFlash + 0.12 * Math.sin(t * 3.1);
-        drawAnamorphicFlare(ctx, prismScreenX, prismScreenY, 1380 * (0.7 + 0.3 * introPop), flareIntensity, t);
-
-        // Render WebGL2 3D assembly
-        if (gl) {
-          const ringScale = 0.72 + 0.28 * introPop;
-          const prismSpin = t * 0.92 + 0.35;
-          const objects = [
-            // Inner glowing emerald crystal core
-            {
-              mesh: innerPrism,
-              pos: [0, Math.sin(t * 1.8) * 0.06, 0],
-              rot: [0.14, -prismSpin * 1.45, -0.08],
-              scale: ringScale * (0.96 + 0.05 * lockFlash),
-              color: [0.227, 0.824, 0.624],
-              emissive: [0.09 + 0.09 * lockFlash, 0.34 + 0.22 * lockFlash, 0.25 + 0.14 * lockFlash],
-              roughness: 0.12,
-              metallic: 0.85,
-              alpha: 1.0,
-            },
-            // Ring 1: Inner Emerald Gyroscope (#3ad29f)
-            {
-              mesh: ringEmerald,
-              pos: [0, 0, 0],
-              rot: [0.68 + t * 1.45, 0.42 - t * 0.88, t * 0.55],
-              scale: ringScale,
-              color: [0.227, 0.824, 0.624],
-              emissive: [0.03, 0.14, 0.10],
-              roughness: 0.16,
-              metallic: 0.90,
-              alpha: 1.0,
-            },
-            // Ring 2: Middle Indigo Gyroscope (#6c8cff)
-            {
-              mesh: ringIndigo,
-              pos: [0, 0, 0],
-              rot: [-0.45 - t * 1.12, 0.75 + t * 0.95, -t * 0.42],
-              scale: ringScale,
-              color: [0.424, 0.549, 1.0],
-              emissive: [0.05, 0.08, 0.22],
-              roughness: 0.14,
-              metallic: 0.92,
-              alpha: 1.0,
-            },
-            // Ring 3: Outer Brushed Titanium Gyroscope (#cbd5e1)
-            {
-              mesh: ringTitanium,
-              pos: [0, 0, 0],
-              rot: [1.12 + t * 0.62, -0.35 - t * 0.78, 0.3 + t * 0.32],
-              scale: ringScale,
-              color: [0.796, 0.835, 0.882],
-              emissive: [0.03, 0.04, 0.06],
-              roughness: 0.20,
-              metallic: 0.96,
-              alpha: 1.0,
-            },
-          ];
-
-          // 3 tiny orbiting diamond facets along outer ring plane
-          for (let k = 0; k < 3; k++) {
-            const ang = t * 1.25 + (k * Math.PI * 2) / 3;
-            objects.push({
-              mesh: satCrystal,
-              pos: [Math.cos(ang) * 2.22 * ringScale, Math.sin(ang * 1.5) * 0.55, Math.sin(ang) * 2.22 * ringScale],
-              rot: [t * 2.1 + k, t * 1.7, k],
-              scale: ringScale,
-              color: k % 2 === 0 ? [0.424, 0.549, 1.0] : [0.227, 0.824, 0.624],
-              emissive: k % 2 === 0 ? [0.08, 0.12, 0.28] : [0.04, 0.20, 0.14],
-              roughness: 0.12,
-              metallic: 0.88,
-              alpha: 1.0,
-            });
-          }
-
-          // Translucent outer faceted crystal prism shell drawn last for clean alpha compositing
-          objects.push({
-            mesh: outerPrism,
-            pos: [0, Math.sin(t * 1.8) * 0.06, 0],
-            rot: [0.16, prismSpin, -0.06],
-            scale: ringScale * (0.98 + 0.04 * lockFlash),
-            color: [0.62, 0.76, 1.0],
-            emissive: [0.05 + 0.06 * lockFlash, 0.09 + 0.08 * lockFlash, 0.20 + 0.12 * lockFlash],
-            roughness: 0.08,
-            metallic: 0.94,
-            alpha: 0.68,
-          });
-
-          gl.render({
-            cameraPos,
-            cameraTarget,
-            fovDeg,
-            keyColor: [0.76, 0.86, 1.0],
-            fillColor: [0.23, 0.86, 0.64],
-            objects,
-          });
-          ctx.drawImage(gl.canvas, 0, 0, W, H);
-        }
-
-        // Foreground thin horizontal optical flare crossing prism core
-        drawAnamorphicFlare(ctx, prismScreenX, prismScreenY - 8, 920, 0.35 + 0.45 * lockFlash, t);
-
-        // ---------- Left Editorial Kinetic Typography ----------
-        const leftX = 112;
-        const pillP = springProgress(t, { delay: 0.10, duration: 0.55, damping: 14, stiffness: 190 });
-        const line1P = springProgress(t, { delay: 0.22, duration: 0.58, damping: 15, stiffness: 185 });
-        const line2P = springProgress(t, { delay: 0.42, duration: 0.56, damping: 15, stiffness: 210 });
-        const metaP = springProgress(t, { delay: 0.72, duration: 0.55, damping: 16, stiffness: 170 });
-
-        // Pill badge: ZERO-DEP WEBCODECS ENGINE
-        ctx.save();
-        ctx.globalAlpha = clamp01(pillP * 1.4);
-        const pillY = lerp(285, 250, pillP);
-        const pillW = drawPill(ctx, leftX, pillY, "   ZERO-DEP WEBCODECS ENGINE", {
-          fg: "#dbeafe",
-          bg: "rgba(108, 140, 255, 0.16)",
-          border: "rgba(108, 140, 255, 0.55)",
-          font: `700 17px ${MONO_FONT}`,
-          padX: 20,
-          height: 40,
-        });
-        // Pulsing emerald status dot inside pill
-        ctx.fillStyle = "#3ad29f";
-        ctx.shadowColor = "#3ad29f";
-        ctx.shadowBlur = 12;
-        ctx.beginPath();
-        ctx.arc(leftX + 22, pillY + 20, 5.2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-
-        // Staggered Title Line 1: "EVERY FRAME"
-        const line1Y = 442;
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(leftX - 10, line1Y - 140, 920, 152);
-        ctx.clip();
-        ctx.globalAlpha = clamp01(line1P * 1.4);
-        ctx.font = `900 124px ${UI_FONT}`;
-        ctx.fillStyle = "#f8fafc";
-        ctx.shadowColor = "rgba(108, 140, 255, 0.35)";
-        ctx.shadowBlur = 24;
-        ctx.fillText("EVERY FRAME", leftX, line1Y + (1 - line1P) * 95);
-        ctx.restore();
-
-        // Staggered Title Line 2: "IS CODE." locking right onto t=0.85s cue
-        const line2Y = 574;
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(leftX - 10, line2Y - 140, 920, 158);
-        ctx.clip();
-        ctx.globalAlpha = clamp01(line2P * 1.4);
-        ctx.font = `900 128px ${UI_FONT}`;
-        const titleGrad = ctx.createLinearGradient(leftX, line2Y - 105, leftX + 620, line2Y + 12);
-        titleGrad.addColorStop(0, "#ffffff");
-        titleGrad.addColorStop(0.52, "#8ba6ff");
-        titleGrad.addColorStop(1, "#3ad29f");
-        ctx.fillStyle = titleGrad;
-        ctx.shadowColor = `rgba(58, 210, 159, ${0.22 + 0.45 * lockFlash})`;
-        ctx.shadowBlur = 26 + 24 * lockFlash;
-        ctx.fillText("IS CODE.", leftX, line2Y + (1 - line2P) * 105);
-        ctx.restore();
-
-        // Kinetic lock bar beneath title sweeping horizontally at t=0.85s
-        ctx.save();
-        const barW = 735 * easeOutCubic(clamp01((t - 0.48) / 0.42));
-        const barGrad = ctx.createLinearGradient(leftX, 0, leftX + 735, 0);
-        barGrad.addColorStop(0, "#6c8cff");
-        barGrad.addColorStop(0.5, "#3ad29f");
-        barGrad.addColorStop(1, "rgba(203, 213, 225, 0.15)");
-        ctx.fillStyle = barGrad;
-        ctx.fillRect(leftX, 616, barW, 3);
-        if (lockFlash > 0.02) {
-          ctx.fillStyle = `rgba(255, 255, 255, ${0.8 * lockFlash})`;
-          ctx.fillRect(leftX + barW - 40, 614, 46, 7);
-        }
-        ctx.restore();
-
-        // Subline & spec card
-        ctx.save();
-        ctx.globalAlpha = clamp01(metaP * 1.3);
-        const cardY = lerp(680, 650, metaP);
-        drawGlassCard(ctx, leftX, cardY, 735, 118, {
-          radius: 16,
-          fill: "rgba(12, 16, 29, 0.78)",
-          border: "rgba(148, 175, 255, 0.25)",
-        });
-
-        ctx.font = `600 24px ${UI_FONT}`;
-        ctx.fillStyle = "#e2e8f0";
-        ctx.fillText("Deterministic HTML / WebGL2 Motion Pipeline", leftX + 28, cardY + 46);
-
-        ctx.font = `700 16px ${MONO_FONT}`;
-        ctx.fillStyle = "#94a3b8";
-        ctx.fillText("WINDOW.KINEARC.SEEK(T)", leftX + 28, cardY + 86);
-
-        ctx.fillStyle = "#3ad29f";
-        ctx.fillText("·  1080P → 4K UHD", leftX + 285, cardY + 86);
-
-        ctx.fillStyle = "#8ba6ff";
-        ctx.fillText("·  AVC ANNEX-B 60 FPS", leftX + 492, cardY + 86);
-        ctx.restore();
-
-        // Right-bottom subtle prism telemetry tag
-        ctx.save();
-        ctx.globalAlpha = clamp01(metaP);
-        const badgeText = "3-AXIS PBR GYROSCOPE · 8-FACET PRISM";
-        ctx.font = `700 15px ${MONO_FONT}`;
-        const bw = ctx.measureText(badgeText).width + 36;
-        drawPill(ctx, W - 96 - bw, H - 108, badgeText, {
-          fg: "#cbd5e1",
-          bg: "rgba(15, 20, 34, 0.74)",
-          border: "rgba(203, 213, 225, 0.28)",
-          font: `700 15px ${MONO_FONT}`,
-          padX: 18,
-          height: 36,
-        });
-        ctx.restore();
-
-        // Crisp subtle cut-in vignette on entry and exit
-        const entryFade = 1 - smoothstep(0.0, 0.14, t);
-        const exitFade = smoothstep(2.86, 3.0, t) * 0.35;
-        if (entryFade > 0.005 || exitFade > 0.005) {
-          ctx.fillStyle = `rgba(6, 7, 12, ${Math.max(entryFade * 0.7, exitFade)})`;
-          ctx.fillRect(0, 0, W, H);
-        }
-
-        drawCornerHud(ctx, W, H, t, total, "KINEARC V3.0 · 01 HOOK");
-      },
+    drawCraftBackdrop(ctx, W, H, t, {
+      theme: "pearl",
+      warmPool: "rgba(167, 139, 250, 0.16)",
+      coolPool: "rgba(56, 189, 248, 0.12)",
+      showCrosshairs: false,
     });
-  </script>
+
+    // @cue 0.45 swell
+    // @cue 0.85 glint
+    // @cue 1.45 tap
+
+    const settle = springProgress(t, { delay: 0.0, duration: 0.95, damping: 14, stiffness: 155 });
+    const driftY = Math.sin(t * 2.2) * 0.06;
+    const zSettle = lerp(-2.2, 0.0, easeOutCubic(clamp01(settle)));
+    const objScale = lerp(0.72, isPortrait ? 0.92 : 1.04, settle);
+
+    const objPos = isPortrait
+      ? [0, 1.02 + driftY, zSettle]
+      : [1.58, 0.05 + driftY, zSettle];
+
+    // Soft ambient floor shadow beneath floating 3D crystal
+    ctx.save();
+    const shadowX = isPortrait ? W * 0.5 : W * 0.675;
+    const shadowY = isPortrait ? H * 0.455 : H * 0.685;
+    const shadowRx = (isPortrait ? 150 : 195) * (0.75 + 0.25 * clamp01(settle));
+    const shadowRy = shadowRx * 0.22;
+    const shGrad = ctx.createRadialGradient(shadowX, shadowY, 4, shadowX, shadowY, shadowRx);
+    shGrad.addColorStop(0, "rgba(99, 91, 255, 0.14)");
+    shGrad.addColorStop(0.55, "rgba(24, 24, 27, 0.06)");
+    shGrad.addColorStop(1, "rgba(24, 24, 27, 0)");
+    ctx.fillStyle = shGrad;
+    ctx.beginPath();
+    ctx.ellipse(shadowX, shadowY, shadowRx, shadowRy, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    if (gl) {
+      const camPos = isPortrait ? [0, 0.28, 9.6] : [0, 0.32, 6.2];
+      const camTarget = isPortrait ? [0, 0.10, 0] : [0.05, 0, 0];
+      gl.render({
+        cameraPos: camPos,
+        cameraTarget: camTarget,
+        fovDeg: isPortrait ? 40 : 39,
+        keyColor: [0.90, 0.88, 1.0],
+        fillColor: [0.48, 0.54, 0.98],
+        objects: [
+          {
+            mesh: crystalMesh,
+            pos: objPos,
+            rot: [0.24 + Math.sin(t * 1.4) * 0.06, t * 0.95 + 0.35, -0.14],
+            scale: objScale,
+            color: [0.42, 0.34, 0.92],
+            emissive: [0.07, 0.04, 0.22],
+            roughness: 0.30,
+            metallic: 0.08,
+          },
+          {
+            mesh: ringMesh,
+            pos: objPos,
+            rot: [Math.PI * 0.36 + t * 0.55, -0.35 + t * 1.25, 0.28],
+            scale: objScale,
+            color: [0.95, 0.62, 0.35],
+            emissive: [0.22, 0.11, 0.04],
+            roughness: 0.22,
+            metallic: 0.40,
+          },
+        ],
+      });
+      ctx.drawImage(gl.canvas, 0, 0, W, H);
+    }
+
+    // Rack-focus optical typography reveal
+    const meetP = clamp01((t - 0.45) / 0.36);
+    const brandP = clamp01((t - 0.72) / 0.44);
+    const tagP = clamp01((t - 1.25) / 0.42);
+
+    if (isPortrait) {
+      const cx = W * 0.5;
+      drawBlurRevealText(ctx, "Meet", cx, H * 0.575, meetP, {
+        font: `500 38px ${FONT_FAMILY}`,
+        color: "#64748b",
+        align: "center",
+        maxBlur: 12,
+        liftPx: 14,
+      });
+      drawBlurRevealText(ctx, "KineArc", cx, H * 0.652, brandP, {
+        font: `800 116px ${FONT_FAMILY}`,
+        color: "#18181b",
+        align: "center",
+        maxBlur: 18,
+        liftPx: 20,
+      });
+      drawBlurRevealText(ctx, "Turn any video into editable motion.", cx, H * 0.712, tagP, {
+        font: `500 32px ${FONT_FAMILY}`,
+        color: "#64748b",
+        align: "center",
+        maxBlur: 12,
+        liftPx: 12,
+      });
+    } else {
+      const tx = W * 0.115;
+      drawBlurRevealText(ctx, "Meet", tx, H * 0.395, meetP, {
+        font: `500 36px ${FONT_FAMILY}`,
+        color: "#64748b",
+        align: "left",
+        maxBlur: 12,
+        liftPx: 14,
+      });
+      drawBlurRevealText(ctx, "KineArc", tx - 4, H * 0.515, brandP, {
+        font: `800 120px ${FONT_FAMILY}`,
+        color: "#18181b",
+        align: "left",
+        maxBlur: 18,
+        liftPx: 20,
+      });
+      drawBlurRevealText(ctx, "Turn any video into editable motion.", tx, H * 0.592, tagP, {
+        font: `500 30px ${FONT_FAMILY}`,
+        color: "#64748b",
+        align: "left",
+        maxBlur: 12,
+        liftPx: 12,
+      });
+    }
+
+    drawFilmGrain(ctx, W, H, t, 0.020);
+  },
+});
+</script>
 </body>
 </html>

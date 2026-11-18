@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KineArc — Outro CTA</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #f6f7fb;
+    }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+import {
+  clamp01,
+  lerp,
+  easeOutCubic,
+  springProgress,
+  createCrystalMesh,
+  createTorusMesh,
+  drawCraftBackdrop,
+  drawBlurRevealText,
+  drawPearlCard,
+  drawFilmGrain,
+  registerScene,
+} from "./kinearc-gl3d.js";
+
+const crystalMesh = createCrystalMesh(8, 0.52, 1.42, 0.28);
+const ringMesh = createTorusMesh(0.92, 0.036, 64, 16);
+const FONT_FAMILY = '"Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+
+registerScene({
+  totalDuration: 2.4,
+  responsive: true,
+  onFrame({ ctx, gl, W, H, t }) {
+    const isPortrait = H > W;
+    const cx = W * 0.5;
+
+    drawCraftBackdrop(ctx, W, H, t, {
+      theme: "pearl",
+      warmPool: "rgba(167, 139, 250, 0.16)",
+      coolPool: "rgba(56, 189, 248, 0.12)",
+      showCrosshairs: false,
+    });
+
+    // @cue 0.18 tap
+    // @cue 0.58 glint
+    // @cue 1.00 chord volume=0.86
+    // @cue 1.45 ping
+
+    const floatY = Math.sin(t * 2.2) * 0.04;
+    const emblemEnter = springProgress(t, { delay: 0.0, duration: 0.72, damping: 15, stiffness: 175 });
+
+    // Gentle floating 3D star/crystal emblem at top-center
+    if (gl) {
+      const camPos = isPortrait ? [0, 0.18, 9.6] : [0, 0.22, 6.8];
+      const objY = isPortrait ? 1.66 : 1.38;
+      const objScale = lerp(0.72, isPortrait ? 0.80 : 0.76, emblemEnter);
+      gl.render({
+        cameraPos: camPos,
+        cameraTarget: [0, 0, 0],
+        fovDeg: 40,
+        keyColor: [0.90, 0.88, 1.0],
+        fillColor: [0.48, 0.54, 0.98],
+        objects: [
+          {
+            mesh: crystalMesh,
+            pos: [0, objY + floatY, 0],
+            rot: [0.22, t * 1.15 + 0.4, -0.10],
+            scale: objScale,
+            color: [0.42, 0.34, 0.92],
+            emissive: [0.07, 0.04, 0.22],
+            roughness: 0.30,
+            metallic: 0.08,
+          },
+          {
+            mesh: ringMesh,
+            pos: [0, objY + floatY, 0],
+            rot: [Math.PI * 0.34 + t * 0.5, -0.3 + t * 1.1, 0.25],
+            scale: objScale,
+            color: [0.95, 0.62, 0.35],
+            emissive: [0.22, 0.11, 0.04],
+            roughness: 0.22,
+            metallic: 0.40,
+          },
+        ],
+      });
+      ctx.drawImage(gl.canvas, 0, 0, W, H);
+    }
+
+    // 3 stacked hero words revealing at 0.18s, 0.58s, 0.98s
+    const p1 = clamp01((t - 0.18) / 0.34);
+    const p2 = clamp01((t - 0.58) / 0.34);
+    const p3 = clamp01((t - 0.98) / 0.38);
+
+    const y1 = isPortrait ? H * 0.445 : H * 0.470;
+    const y2 = isPortrait ? H * 0.520 : H * 0.582;
+    const y3 = isPortrait ? H * 0.598 : H * 0.696;
+    const heroSize = isPortrait ? 110 : 106;
+    const heroAccentSize = isPortrait ? 116 : 112;
+
+    drawBlurRevealText(ctx, "Watch.", cx, y1, p1, {
+      font: `800 ${heroSize}px ${FONT_FAMILY}`,
+      color: "#18181b",
+      align: "center",
+      maxBlur: 18,
+      liftPx: 18,
+    });
+    drawBlurRevealText(ctx, "Remix.", cx, y2, p2, {
+      font: `800 ${heroSize}px ${FONT_FAMILY}`,
+      color: "#18181b",
+      align: "center",
+      maxBlur: 18,
+      liftPx: 18,
+    });
+    drawBlurRevealText(ctx, "Render 4K.", cx, y3, p3, {
+      font: `800 ${heroAccentSize}px ${FONT_FAMILY}`,
+      color: "#635bff",
+      align: "center",
+      maxBlur: 20,
+      liftPx: 20,
+    });
+
+    // Subtle porcelain pill link at t=1.35s
+    if (t >= 1.35) {
+      const pillSp = springProgress(t, { delay: 1.35, duration: 0.48, damping: 15, stiffness: 195 });
+      const pillAlpha = clamp01(pillSp * 1.4);
+      const pillW = isPortrait ? 470 : 416;
+      const pillH = isPortrait ? 64 : 56;
+      const pillY = (isPortrait ? H * 0.668 : H * 0.768) + (1 - pillSp) * 14;
+      const pillX = cx - pillW * 0.5;
+
+      ctx.save();
+      ctx.globalAlpha = pillAlpha;
+      drawPearlCard(ctx, pillX, pillY, pillW, pillH, {
+        radius: pillH * 0.5,
+        bg: "rgba(255, 255, 255, 0.94)",
+        border: "rgba(99, 91, 255, 0.22)",
+        shadowColor: "rgba(65, 58, 128, 0.10)",
+        shadowBlur: 24,
+      });
+
+      const label = "github.com/jogurii/kinearc";
+      ctx.font = `600 ${isPortrait ? 25 : 22}px ${FONT_FAMILY}`;
+      const tw = ctx.measureText(label).width;
+      const dotGap = 18;
+      const startX = cx - (tw + dotGap) * 0.5;
+      const midY = pillY + pillH * 0.5;
+
+      ctx.fillStyle = "#635bff";
+      ctx.beginPath();
+      ctx.arc(startX + 4, midY, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#475569";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, startX + dotGap, midY + 1);
+      ctx.restore();
+    }
+
+    // Seamless bright portal bloom settle from Scene 04's flash
+    if (t < 0.24) {
+      const veilAlpha = 1 - easeOutCubic(t / 0.24);
+      if (veilAlpha > 0.005) {
+        ctx.save();
+        ctx.globalAlpha = veilAlpha * 0.92;
+        ctx.fillStyle = "#f6f7fb";
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+    }
+
+    drawFilmGrain(ctx, W, H, t, 0.020);
+  },
+});
+</script>
+</body>
+</html>
