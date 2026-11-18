@@ -628,12 +628,11 @@ console.log('STAGE_JS_BEHAVIOR_OK');
 
 def test_optional_headless_browser_dom_smoke(tmp_path: Path) -> None:
     """Verify index.html + styles.css + stage.js load cleanly in headless Chromium when installed."""
-    candidates = [
-        Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe"),
-        Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"),
-    ]
-    browser = next((p for p in candidates if p.is_file()), None)
-    if browser is None:
+    import kinearc_cli
+
+    discovered = kinearc_cli.find_browser_executable()
+    browser = Path(discovered) if discovered else None
+    if browser is None or not browser.is_file():
         pytest.skip("No local Chrome/Edge binary found for optional headless DOM smoke check")
 
     import kinearc_ui
@@ -656,6 +655,7 @@ def test_optional_headless_browser_dom_smoke(tmp_path: Path) -> None:
                 str(browser),
                 "--headless=new",
                 "--disable-gpu",
+                "--disable-dev-shm-usage",
                 "--no-sandbox",
                 f"--user-data-dir={profile_dir}",
                 "--virtual-time-budget=1500",

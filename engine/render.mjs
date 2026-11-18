@@ -499,6 +499,28 @@ function removeDirWithRetries(dirPath, attempts = 8, delayMs = 100) {
   }
 }
 
+function buildBrowserProcessEnv(baseEnv = process.env) {
+  const env = { ...baseEnv };
+  if (process.platform === "win32") {
+    return env;
+  }
+  // Chromium binds its SingletonSocket inside $TMPDIR (sun_path <= 107 bytes on POSIX).
+  // Deep TMPDIR values (e.g., pytest tmp_path on CI) crash Chrome with "Socket path too long".
+  const curTmp = String(env.TMPDIR || env.TMP || env.TEMP || os.tmpdir());
+  if (Buffer.byteLength(curTmp, "utf8") <= 55) {
+    return env;
+  }
+  try {
+    fs.accessSync("/tmp", fs.constants.W_OK | fs.constants.X_OK);
+    env.TMPDIR = "/tmp";
+    env.TMP = "/tmp";
+    env.TEMP = "/tmp";
+  } catch {
+    // Keep caller environment unchanged if /tmp is unavailable.
+  }
+  return env;
+}
+
 async function launchBrowserSession({ browserPath, timeoutMs = DEFAULT_READY_TIMEOUT_MS }) {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "kinearc-chrome-"));
   const chromeArgs = [
@@ -521,6 +543,7 @@ async function launchBrowserSession({ browserPath, timeoutMs = DEFAULT_READY_TIM
 
   const proc = spawn(browserPath, chromeArgs, {
     stdio: ["ignore", "pipe", "pipe"],
+    env: buildBrowserProcessEnv(),
   });
 
   let ws = null;

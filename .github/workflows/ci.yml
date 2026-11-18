@@ -49,9 +49,35 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue) -or -not (Get-Command ffprobe -ErrorAction SilentlyContinue)) {
             winget install -e --id Gyan.FFmpeg --accept-source-agreements --accept-package-agreements
           }
+          $winGetLinks = Join-Path $env:LOCALAPPDATA "Microsoft\WinGet\Links"
+          $pkgRoot = Join-Path $env:LOCALAPPDATA "Microsoft\WinGet\Packages"
+          $pkgBins = @(
+            Get-ChildItem -Path $pkgRoot -Directory -Filter "Gyan.FFmpeg*" -ErrorAction SilentlyContinue |
+              ForEach-Object { Get-ChildItem -Path $_.FullName -Directory -Recurse -Filter "bin" -ErrorAction SilentlyContinue } |
+              Select-Object -ExpandProperty FullName
+          )
+          $chocoBin = if ($env:ProgramData) { Join-Path $env:ProgramData "chocolatey\bin" } else { $null }
+          $extraPaths = @($pkgBins) + @($winGetLinks, $chocoBin) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+          foreach ($dir in $extraPaths) {
+            if (($env:PATH -split ';') -notcontains $dir) {
+              $env:PATH = "$dir;$env:PATH"
+            }
+            Add-Content -Path $env:GITHUB_PATH -Value $dir
+          }
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue) -or -not (Get-Command ffprobe -ErrorAction SilentlyContinue)) {
+            if (Get-Command choco -ErrorAction SilentlyContinue) {
+              choco install ffmpeg -y --no-progress
+              if ($chocoBin -and (Test-Path -LiteralPath $chocoBin)) {
+                $env:PATH = "$chocoBin;$env:PATH"
+                Add-Content -Path $env:GITHUB_PATH -Value $chocoBin
+              }
+            }
+          }
+          ffmpeg -version
+          ffprobe -version
 
       - name: Syntax check JavaScript & ESM engine modules
         shell: bash

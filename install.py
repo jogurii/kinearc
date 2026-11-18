@@ -7,12 +7,17 @@ Copies or links (`--link`) the core kinearc skill files (`SKILL.md`, `engine/`,
 directories and validates the host toolchain via `scripts/kinearc_cli.py doctor`.
 """
 
+from __future__ import annotations
+
 import argparse
 import os
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 import sys
+import time
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent
 INSTALL_ITEMS = ("SKILL.md", "README.md", "LICENSE", "engine", "scripts", "references")
@@ -90,6 +95,37 @@ def _is_link_or_junction(path: Path) -> bool:
     return False
 
 
+def _rmtree_with_retries(dest: Path, retries: int = 8) -> None:
+    """Remove a directory tree, clearing read-only bits and retrying brief Windows locks."""
+
+    def _clear_and_retry(func: Any, target_path: str) -> None:
+        try:
+            os.chmod(target_path, stat.S_IWRITE)
+        except OSError:
+            pass
+        func(target_path)
+
+    if sys.version_info >= (3, 12):
+        rmtree_kwargs: dict[str, Any] = {
+            "onexc": lambda func, target_path, _exc: _clear_and_retry(func, target_path)
+        }
+    else:
+        rmtree_kwargs = {
+            "onerror": lambda func, target_path, _exc_info: _clear_and_retry(func, target_path)
+        }
+
+    for attempt in range(retries):
+        try:
+            shutil.rmtree(dest, **rmtree_kwargs)
+            return
+        except OSError:
+            if not dest.exists():
+                return
+            if attempt >= retries - 1:
+                raise
+            time.sleep(0.05 * (attempt + 1))
+
+
 def _remove_existing(dest: Path) -> None:
     if not dest.exists() and not _is_link_or_junction(dest):
         return
@@ -99,7 +135,7 @@ def _remove_existing(dest: Path) -> None:
         except OSError:
             dest.unlink()
     elif dest.is_dir():
-        shutil.rmtree(dest)
+        _rmtree_with_retries(dest)
     else:
         dest.unlink()
 

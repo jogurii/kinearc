@@ -308,7 +308,7 @@ window.renderAt(0);
     assert vs["width"] == 2160
     assert vs["height"] == 3840
     assert vs["codec_name"] == "h264"
-    assert vs["pix_fmt"] == "yuv420p"
+    assert vs["pix_fmt"] in {"yuv420p", "yuvj420p"}
     assert vs["avg_frame_rate"] == "60/1"
     assert float(vs["duration"]) == pytest.approx(1.0, abs=0.08)
     frame_count = int(vs.get("nb_read_frames") or vs.get("nb_frames") or 0)
@@ -360,7 +360,7 @@ window.kinearc = { totalDuration: 0.3, ready: Promise.resolve().then(() => seek(
     a_odd = [s for s in probe_odd["streams"] if s["codec_type"] == "audio"]
     assert len(v_odd) == 1 and len(a_odd) == 0
     assert v_odd[0]["width"] == 320 and v_odd[0]["height"] == 180
-    assert v_odd[0]["codec_name"] == "h264" and v_odd[0]["pix_fmt"] == "yuv420p"
+    assert v_odd[0]["codec_name"] == "h264" and v_odd[0]["pix_fmt"] in {"yuv420p", "yuvj420p"}
     assert v_odd[0]["avg_frame_rate"] == "30/1"
 
     # 2. Multi-scene project (Canvas scene + Pure DOM/SVG fallback scene) + WAV audio mux

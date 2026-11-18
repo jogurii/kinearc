@@ -1154,12 +1154,11 @@ def test_full_stack_http_roundtrip_fixture_a_and_b(tmp_path: Path) -> None:
 
 
 def test_headless_browser_e2e_populated_and_empty_states(tmp_path: Path) -> None:
-    candidates = [
-        Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe"),
-        Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"),
-    ]
-    browser = next((p for p in candidates if p.is_file()), None)
-    if browser is None:
+    import kinearc_cli
+
+    discovered = kinearc_cli.find_browser_executable()
+    browser = Path(discovered) if discovered else None
+    if browser is None or not browser.is_file():
         pytest.skip("No local Chrome/Edge binary found for headless E2E browser smoke check")
 
     import kinearc_ui
@@ -1172,6 +1171,7 @@ def test_headless_browser_e2e_populated_and_empty_states(tmp_path: Path) -> None
                 str(browser),
                 "--headless=new",
                 "--disable-gpu",
+                "--disable-dev-shm-usage",
                 "--no-sandbox",
                 f"--user-data-dir={profile_dir}",
                 "--virtual-time-budget=2500",
