@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/hero-demo.webp" width="100%" alt="kinearc v3.0 3D Launch Promo: WebGL2 geometric prism, CV motion telemetry, Split & 4x MAE Diff inspection, clip range annotations, auto-ducked waveform, and 4K 60fps WebCodecs export" />
+  <img src="assets/promo-demo.webp" width="100%" alt="kinearc v3.0 16:9 Widescreen Promo: pearl editorial typing hook, 2x2 Motion / 3D / Style / Sound remix grid, dark WebGL2 crystal prism portal transition, and Watch CTA synced with tactile foley" />
 </p>
 
 <div align="center">
@@ -39,18 +39,27 @@ Every scene in `kinearc` is deterministic, time-driven code (`window.kinearc.see
 
 ## Built-In Showcase Examples
 
-Clone the repository and launch or render either showcase project immediately ([examples/README.md](examples/README.md)):
+Clone the repository and preview or render both widescreen showcases directly ([examples/README.md](examples/README.md)):
+
+<p align="center">
+  <img src="assets/tutorial-demo.webp" width="100%" alt="kinearc v3.0 16:9 Widescreen Tutorial: 4-step walkthrough showing reference drop, motion & foley extraction, pearl/midnight 3D theme switcher, and split-wipe 4K export" />
+</p>
 
 | Example Project | Specs | Highlights | Launch Command |
 | :--- | :--- | :--- | :--- |
-| **[`examples/kinearc-promo-3d/`](examples/kinearc-promo-3d/)** | `18.0s` · `6` scenes · `1920×1080` (4K-ready) · `@ 60fps` | Zero-dep WebGL2 PBR 3D crystal prism, trefoil knot, Split/MAE loupe, 3D audio bars & synthesized soundtrack | `python scripts/kinearc_cli.py ui --project examples/kinearc-promo-3d/kinearc.project.json` |
-| **[`examples/kinearc-tutorial/`](examples/kinearc-tutorial/)** | `30.0s` · `5` scenes · `1920×1080 @ 60fps` | Interactive walkthrough covering `extract`, deterministic `seek(t)`, 60 FPS Workbench review & 4K export | `python scripts/kinearc_cli.py ui --project examples/kinearc-tutorial/kinearc.project.json` |
+| **[`examples/kinearc-promo-3d/`](examples/kinearc-promo-3d/)** | `13.0s` · `5` scenes · `1920×1080` (`16:9`) & `1080×1920` (`9:16`) · `@ 60fps` | Zero-dep WebGL2 chamfered crystal prism & orbital ring, pearl editorial typing hook, 2×2 remix grid, dark 3D portal transition & 26-cue auto-synced SFX mix | `python scripts/kinearc_cli.py ui --project examples/kinearc-promo-3d/kinearc.project.json` |
+| **[`examples/kinearc-tutorial/`](examples/kinearc-tutorial/)** | `18.0s` · `4` scenes · `1920×1080 @ 60fps` | Human-first 4-step walkthrough: drop any clip, extract pacing & sound feel, pick custom themes (`Pearl Violet` / `Midnight Gold` / `Warm Coral`), and compare split-wipe 4K export | `python scripts/kinearc_cli.py ui --project examples/kinearc-tutorial/kinearc.project.json` |
 
-Render either project directly to MP4:
+Render full-sound MP4s directly (widescreen 1080p/4K for GitHub/web or `9:16` vertical for social):
 
 ```bash
-python scripts/kinearc_cli.py render --project examples/kinearc-promo-3d/kinearc.project.json --out out/kinearc-promo-3d-1080p.mp4 --json-progress
-python scripts/kinearc_cli.py render --project examples/kinearc-promo-3d/kinearc.project.json --out out/kinearc-promo-3d-4k.mp4 --scale 2 --json-progress
+# Widescreen Promo & Tutorial (1920x1080 @ 60fps + 48kHz stereo SFX mix)
+python scripts/kinearc_cli.py render --project examples/kinearc-promo-3d/kinearc.project.json --out out/kinearc_promo_3d_1080p.mp4 --json-progress
+python scripts/kinearc_cli.py render --project examples/kinearc-tutorial/kinearc.project.json --out out/kinearc_tutorial_1080p.mp4 --json-progress
+
+# 4K Widescreen Promo (3840x2160 @ 60fps) & Vertical 9:16 Social Promo (1080x1920 @ 60fps)
+python scripts/kinearc_cli.py render --project examples/kinearc-promo-3d/kinearc.project.json --out out/kinearc_promo_3d_4k.mp4 --scale 2 --json-progress
+python scripts/kinearc_cli.py render --project examples/kinearc-promo-3d/kinearc.vertical.project.json --out out/kinearc_promo_vertical_1080p.mp4 --json-progress
 ```
 
 ---
