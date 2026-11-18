@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>kinearc</title>
+  <link rel="stylesheet" href="/ui/styles.css" />
+</head>
+<body class="kinearc-shell">
+  <header class="topbar" id="topBar">
+    <div class="topbar-left">
+      <div class="brand-pill"><strong>kinearc</strong></div>
+      <span class="meta-badge tabular" id="metaBadge">Loading...</span>
+      <select id="sceneSelect" class="ctrl-select hidden" aria-label="Active live scene"></select>
+    </div>
+
+    <div class="topbar-center">
+      <div class="mode-tabs" id="modeTabs" role="tablist" aria-label="Viewport inspection mode">
+        <button type="button" class="mode-btn" data-mode="live" role="tab" aria-selected="false">Live</button>
+        <button type="button" class="mode-btn" data-mode="clone" role="tab" aria-selected="false">Clone</button>
+        <button type="button" class="mode-btn" data-mode="sbs" role="tab" aria-selected="false">Side-by-Side</button>
+        <button type="button" class="mode-btn" data-mode="split" role="tab" aria-selected="false">Split</button>
+        <button type="button" class="mode-btn" data-mode="onion" role="tab" aria-selected="false">Onion</button>
+        <button type="button" class="mode-btn" data-mode="diff" role="tab" aria-selected="false">Diff</button>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <div class="split-control hidden" id="splitControl">
+        <span class="split-label" id="splitControlLabel">Split</span>
+        <input
+          type="range"
+          id="splitSlider"
+          min="0"
+          max="100"
+          value="50"
+          aria-label="Split swipe or onion mix percentage"
+        />
+        <span class="split-value tabular" id="splitValue">50%</span>
+      </div>
+
+      <select id="safeZoneSelect" class="ctrl-select" aria-label="Safe zone overlay">
+        <option value="none">Safe: Off</option>
+        <option value="9:16">Safe: 9:16</option>
+        <option value="16:9">Safe: 16:9</option>
+        <option value="1:1">Safe: 1:1</option>
+        <option value="thirds">Thirds</option>
+      </select>
+
+      <button
+        type="button"
+        class="tool-btn"
+        id="btnLoupe"
+        aria-pressed="false"
+        title="Toggle 2x optical pixel loupe"
+      >
+        2× Loupe
+      </button>
+
+      <button
+        type="button"
+        class="tool-btn"
+        id="btnToggleDrawer"
+        aria-expanded="true"
+        title="Toggle inspector drawer"
+      >
+        Drawer
+      </button>
+
+      <button
+        type="button"
+        class="tool-btn"
+        id="btnCopyPrompt"
+        title="Copy AI revision prompt"
+      >
+        Copy Prompt
+      </button>
+
+      <button
+        type="button"
+        class="accent-btn"
+        id="btnTopExport"
+        title="Open Audio and Export controls"
+      >
+        Export
+      </button>
+    </div>
+  </header>
+
+  <main class="workspace" id="workspace">
+    <section class="stage-pane" id="stagePane">
+      <div class="stage-wrap" id="stageWrap">
+        <div class="stage-viewport">
+          <iframe
+            id="liveFrame"
+            class="stage-layer is-inactive"
+            title="kinearc live scene"
+            sandbox="allow-scripts allow-same-origin"
+            aria-hidden="true"
+            tabindex="-1"
+          ></iframe>
+          <canvas id="stageCanvas" class="stage-layer"></canvas>
+          <svg id="safeZoneOverlay" class="safe-overlay" aria-hidden="true"></svg>
+          <canvas id="overlayCanvas" class="overlay-layer"></canvas>
+        </div>
+
+        <div id="loupeLens" class="loupe-lens hidden" aria-hidden="true">
+          <canvas id="loupeCanvas" width="180" height="180"></canvas>
+          <div class="loupe-reticle"></div>
+          <div class="loupe-badge tabular" id="loupeBadge">2×</div>
+        </div>
+      </div>
+
+      <div id="stageEmpty" class="stage-empty hidden" role="status">
+        <div class="stage-empty-card">
+          <strong class="stage-empty-title" id="stageEmptyTitle">No active viewport source</strong>
+          <p class="stage-empty-desc" id="stageEmptyDesc">
+            Launch kinearc_ui.py with an MP4 render, --scene HTML file, or kinearc.project.json.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <aside class="drawer" id="rightDrawer" aria-label="Inspector drawer">
+      <nav class="drawer-tabs" role="tablist" aria-label="Inspector sections">
+        <button type="button" class="drawer-tab active" data-tab="notes" role="tab" aria-selected="true">Notes</button>
+        <button type="button" class="drawer-tab" data-tab="qa" role="tab" aria-selected="false">QA</button>
+        <button type="button" class="drawer-tab" data-tab="audio" role="tab" aria-selected="false">Audio &amp; Out</button>
+      </nav>
+
+      <div class="drawer-body">
+        <section id="tab-notes" class="drawer-panel active" role="tabpanel">
+          <div class="panel-composer">
+            <div class="composer-meta">
+              <span id="selectionTarget" class="sel-target tabular">Frame f0 (0.00s) · Full frame</span>
+              <button type="button" class="ghost-btn" id="btnClearSel">Clear</button>
+            </div>
+            <textarea
+              id="noteInput"
+              class="note-input"
+              placeholder="Click a point or drag a box on the stage to pin a revision note..."
+            ></textarea>
+            <div class="composer-actions">
+              <button type="button" class="accent-btn grow" id="btnSaveNote">Save Note</button>
+              <button type="button" class="tool-btn" id="btnCopyRevision">Copy AI Prompt</button>
+            </div>
+          </div>
+          <div id="notesList" class="notes-list"></div>
+        </section>
+
+        <section id="tab-qa" class="drawer-panel" role="tabpanel" hidden>
+          <div id="qaSummary" class="qa-summary tabular"></div>
+          <div id="loopBadge" class="loop-badge tabular"></div>
+          <div class="section-label">Worst MAE Frames</div>
+          <div id="worstFramesList" class="qa-list tabular"></div>
+          <div class="section-label">Scene Cuts</div>
+          <div id="sceneCutsList" class="qa-list tabular"></div>
+        </section>
+
+        <section id="tab-audio" class="drawer-panel" role="tabpanel" hidden>
+          <div id="audioControlsMount" class="drawer-mount"></div>
+          <div id="exportControlsMount" class="drawer-mount"></div>
+        </section>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="timeline-dock" id="timelineDock">
+    <div class="transport-bar">
+      <div class="transport-controls">
+        <button type="button" class="tool-btn" id="btnPrev10" title="Back 10 frames (Shift+Left)">« 10f</button>
+        <button type="button" class="tool-btn" id="btnPrev1" title="Previous frame (Left)">‹ 1f</button>
+        <button type="button" class="accent-btn play-btn" id="btnPlay" title="Play or pause (Space)">Play</button>
+        <button type="button" class="tool-btn" id="btnNext1" title="Next frame (Right)">1f ›</button>
+        <button type="button" class="tool-btn" id="btnNext10" title="Forward 10 frames (Shift+Right)">10f »</button>
+        <button type="button" class="tool-btn" id="btnSetIn" title="Set clip range In point (I)">[ In</button>
+        <button type="button" class="tool-btn" id="btnSetOut" title="Set clip range Out point (O)">Out ]</button>
+      </div>
+
+      <div class="transport-status">
+        <span id="rangePill" class="range-pill tabular hidden" title="Active clip range (click or right-click to clear)"></span>
+        <span id="loopStatusPill" class="loop-status-pill tabular hidden"></span>
+        <div id="timecodeReadout" class="timecode-readout tabular">00:00.00 / 00:00.00 · f0</div>
+      </div>
+    </div>
+
+    <div class="timeline-track" id="timelineTrack">
+      <canvas id="waveformCanvas" class="waveform-canvas" aria-hidden="true"></canvas>
+      <div id="rangeSelectionBar" class="timeline-range-sel hidden" aria-hidden="true"></div>
+      <div id="markersLayer" class="markers-layer"></div>
+      <input
+        id="scrubber"
+        class="scrubber"
+        type="range"
+        min="0"
+        max="0"
+        value="0"
+        step="1"
+        aria-label="Timeline scrubber"
+      />
+      <div id="playheadLine" class="playhead-line" aria-hidden="true"></div>
+    </div>
+  </footer>
+
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <script type="module" src="/ui/stage.js"></script>
+  <script type="module" src="/ui/app.js"></script>
+</body>
+</html>

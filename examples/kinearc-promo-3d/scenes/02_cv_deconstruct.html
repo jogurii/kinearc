@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>kinearc v3.0 — 02 CV Deconstruct</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #06070c;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <script type="module">
+    import {
+      registerScene,
+      createBoxMesh,
+      drawStageBackdrop,
+      drawDepthParticles,
+      drawGlassCard,
+      drawPill,
+      drawCornerHud,
+      springProgress,
+      easeOutCubic,
+      easeInOutCubic,
+      smoothstep,
+      clamp01,
+      lerp,
+      mat4,
+    } from "./kinearc-gl3d.js";
+
+    const UI_FONT = '"Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
+    const MONO_FONT = 'ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace';
+
+    const SLAB_W = 3.35;
+    const SLAB_H = 0.12;
+    const SLAB_D = 2.05;
+    const slabMesh = createBoxMesh(SLAB_W, SLAB_H, SLAB_D);
+    const railPillar = createBoxMesh(0.035, 3.6, 0.035);
+
+    function projectWorld(pt, vp, W, H) {
+      const [x, y, z] = pt;
+      const cx = vp[0] * x + vp[4] * y + vp[8] * z + vp[12];
+      const cy = vp[1] * x + vp[5] * y + vp[9] * z + vp[13];
+      const cw = vp[3] * x + vp[7] * y + vp[11] * z + vp[15] || 1;
+      return [((cx / cw) * 0.5 + 0.5) * W, (0.5 - (cy / cw) * 0.5) * H];
+    }
+
+    // Transform local slab surface coords (u in [-1, 1], v in [-1, 1]) to world, then screen
+    function makeSlabProjector(pos, rot, vp, W, H) {
+      const m = mat4.transform({ pos, rot, scale: [1, 1, 1] });
+      return (u, v, lift = SLAB_H * 0.5 + 0.015) => {
+        const lx = u * (SLAB_W * 0.46);
+        const ly = lift;
+        const lz = v * (SLAB_D * 0.44);
+        const wx = m[0] * lx + m[4] * ly + m[8] * lz + m[12];
+        const wy = m[1] * lx + m[5] * ly + m[9] * lz + m[13];
+        const wz = m[2] * lx + m[6] * ly + m[10] * lz + m[14];
+        return projectWorld([wx, wy, wz], vp, W, H);
+      };
+    }
+
+    function strokeProjectedPoly(ctx, proj, pts, closed = false) {
+      ctx.beginPath();
+      pts.forEach(([u, v], idx) => {
+        const [sx, sy] = proj(u, v);
+        if (idx === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+      });
+      if (closed) ctx.closePath();
+      ctx.stroke();
+    }
+
+    function drawSlab0Plateau(ctx, proj, t) {
+      // Grid & Catmull-Rom curve with flat stationary HOLD_PLATEAU segments
+      ctx.save();
+      ctx.strokeStyle = "rgba(148, 163, 184, 0.20)";
+      ctx.lineWidth = 1;
+      for (let g = -0.8; g <= 0.81; g += 0.4) {
+        strokeProjectedPoly(ctx, proj, [[g, -0.85], [g, 0.85]]);
+        strokeProjectedPoly(ctx, proj, [[-0.9, g], [0.9, g]]);
+      }
+
+      // Plateau-locked motion curve
+      const curvePts = [];
+      for (let i = 0; i <= 40; i++) {
+        const s = i / 40;
+        const u = lerp(-0.85, 0.85, s);
+        let v;
+        if (s < 0.28) {
+          v = lerp(0.55, -0.15, easeInOutCubic(s / 0.28));
+        } else if (s < 0.58) {
+          v = -0.15; // exact flat stationary HOLD_PLATEAU
+        } else {
+          v = lerp(-0.15, -0.62, easeInOutCubic((s - 0.58) / 0.42));
+        }
+        curvePts.push([u, v]);
+      }
+
+      ctx.strokeStyle = "#3ad29f";
+      ctx.lineWidth = 3.2;
+      ctx.shadowColor = "rgba(58, 210, 159, 0.55)";
+      ctx.shadowBlur = 10;
+      strokeProjectedPoly(ctx, proj, curvePts);
+
+      // Highlight flat plateau bar
+      ctx.strokeStyle = "#f8fafc";
+      ctx.lineWidth = 5;
+      strokeProjectedPoly(ctx, proj, [[-0.374, -0.15], [0.136, -0.15]]);
+
+      // Moving sample marker along LUT
+      const phase = (t * 0.42) % 1;
+      const mu = lerp(-0.85, 0.85, phase);
+      const mv = phase < 0.28
+        ? lerp(0.55, -0.15, easeInOutCubic(phase / 0.28))
+        : (phase < 0.58 ? -0.15 : lerp(-0.15, -0.62, easeInOutCubic((phase - 0.58) / 0.42)));
+      const [mx, my] = proj(mu, mv);
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(mx, my, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Label badge on front-left slab corner (never occluded by slab above)
+      const [lx, ly] = proj(-0.84, 0.78);
+      ctx.shadowBlur = 0;
+      ctx.font = `800 14px ${MONO_FONT}`;
+      ctx.fillStyle = "#3ad29f";
+      ctx.fillText("0.00ms JITTER · LUT", lx, ly);
+      ctx.restore();
+    }
+
+    function drawSlab1SceneCuts(ctx, proj, t, cutFlash) {
+      ctx.save();
+      // Film strip cells f12, f13 | CUT @ f14 | f15
+      const slots = [
+        { u0: -0.84, u1: -0.44, lbl: "f12", cut: false },
+        { u0: -0.40, u1: -0.02, lbl: "f13", cut: false },
+        { u0: 0.04, u1: 0.42, lbl: "f14", cut: true },
+        { u0: 0.46, u1: 0.84, lbl: "f15", cut: false },
+      ];
+      for (const s of slots) {
+        const c0 = proj(s.u0, -0.45);
+        const c1 = proj(s.u1, -0.45);
+        const c2 = proj(s.u1, 0.45);
+        const c3 = proj(s.u0, 0.45);
+        ctx.beginPath();
+        ctx.moveTo(c0[0], c0[1]);
+        ctx.lineTo(c1[0], c1[1]);
+        ctx.lineTo(c2[0], c2[1]);
+        ctx.lineTo(c3[0], c3[1]);
+        ctx.closePath();
+        ctx.fillStyle = s.cut
+          ? `rgba(255, 93, 122, ${0.24 + 0.36 * cutFlash})`
+          : "rgba(108, 140, 255, 0.10)";
+        ctx.fill();
+        ctx.strokeStyle = s.cut ? "#ff5d7a" : "rgba(148, 175, 255, 0.45)";
+        ctx.lineWidth = s.cut ? 2.5 : 1.4;
+        ctx.stroke();
+
+        const [tx, ty] = proj((s.u0 + s.u1) * 0.5 - 0.07, 0.05);
+        ctx.font = `700 14px ${MONO_FONT}`;
+        ctx.fillStyle = s.cut ? "#ffb454" : "#cbd5e1";
+        ctx.fillText(s.lbl, tx, ty);
+      }
+
+      // Razor cut laser line between f13 and f14
+      ctx.strokeStyle = `rgba(255, 180, 84, ${0.75 + 0.25 * cutFlash})`;
+      ctx.lineWidth = 3 + 2 * cutFlash;
+      ctx.shadowColor = "#ff5d7a";
+      ctx.shadowBlur = 14 * (0.4 + cutFlash);
+      strokeProjectedPoly(ctx, proj, [[0.01, -0.78], [0.01, 0.78]]);
+
+      const [lx, ly] = proj(-0.84, 0.78);
+      ctx.shadowBlur = 0;
+      ctx.font = `800 14px ${MONO_FONT}`;
+      ctx.fillStyle = "#ffb454";
+      ctx.fillText("CUT @ f14  ·  scene_cuts.json", lx, ly);
+      ctx.restore();
+    }
+
+    function drawSlab2OpticalFlow(ctx, proj, t) {
+      ctx.save();
+      // Dense 7x4 optical flow vector arrows curving across slab
+      for (let gx = -3; gx <= 3; gx++) {
+        for (let gz = -1.5; gz <= 1.51; gz += 1.0) {
+          const u = gx * 0.25;
+          const v = gz * 0.42;
+          const swirl = Math.sin(u * 2.2 - t * 3.0) * 0.14;
+          const mag = 0.14 + 0.06 * Math.cos(u * 1.8 + t * 2.4);
+          const du = mag * Math.cos(swirl);
+          const dv = mag * Math.sin(swirl) - 0.04 * Math.sin(t * 2 + gx);
+          const [x0, y0] = proj(u, v);
+          const [x1, y1] = proj(u + du, v + dv);
+
+          const ang = Math.atan2(y1 - y0, x1 - x0);
+          const strong = Math.abs(gx) <= 1 && Math.abs(gz) <= 0.6;
+          ctx.strokeStyle = strong ? "#3ad29f" : "#6c8cff";
+          ctx.lineWidth = strong ? 2.6 : 1.8;
+          ctx.beginPath();
+          ctx.moveTo(x0, y0);
+          ctx.lineTo(x1, y1);
+          ctx.stroke();
+
+          // Arrow head
+          const head = 7;
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x1 - head * Math.cos(ang - 0.48), y1 - head * Math.sin(ang - 0.48));
+          ctx.lineTo(x1 - head * Math.cos(ang + 0.48), y1 - head * Math.sin(ang + 0.48));
+          ctx.closePath();
+          ctx.fillStyle = strong ? "#3ad29f" : "#8ba6ff";
+          ctx.fill();
+        }
+      }
+
+      const [lx, ly] = proj(-0.84, 0.78);
+      ctx.font = `800 14px ${MONO_FONT}`;
+      ctx.fillStyle = "#a5b4fc";
+      ctx.fillText("FARNEBACK FLOW  ·  VEC2 FIELD", lx, ly);
+      ctx.restore();
+    }
+
+    function drawSlab3ChronoTrails(ctx, proj, t) {
+      ctx.save();
+      // RGB Chrono-Motion Trails: Red (Past) -> Green (Mid) -> Blue (Present)
+      const pathFn = (p) => {
+        const u = lerp(-0.74, 0.74, p);
+        const v = Math.sin(p * Math.PI * 2.1 - 0.5) * 0.48;
+        return [u, v];
+      };
+
+      // Motion curve spline
+      const pts = [];
+      for (let i = 0; i <= 36; i++) pts.push(pathFn(i / 36));
+      ctx.strokeStyle = "rgba(226, 232, 240, 0.35)";
+      ctx.lineWidth = 2;
+      strokeProjectedPoly(ctx, proj, pts);
+
+      const headP = (t * 0.38) % 1;
+      const ghosts = [
+        { dt: -0.24, col: "#ff5d7a", r: 9, alpha: 0.45 },  // Past: Red
+        { dt: -0.16, col: "#ff7e67", r: 10, alpha: 0.62 },
+        { dt: -0.10, col: "#3ad29f", r: 11, alpha: 0.78 }, // Mid: Green
+        { dt: -0.05, col: "#38bdf8", r: 12, alpha: 0.88 },
+        { dt: 0.00,  col: "#6c8cff", r: 14, alpha: 1.00 }, // Present: Blue
+      ];
+      for (const g of ghosts) {
+        const p = (headP + g.dt + 1) % 1;
+        const [u, v] = pathFn(p);
+        const [sx, sy] = proj(u, v);
+        ctx.globalAlpha = g.alpha;
+        ctx.fillStyle = g.col;
+        ctx.shadowColor = g.col;
+        ctx.shadowBlur = g.dt === 0 ? 16 : 8;
+        ctx.beginPath();
+        ctx.ellipse(sx, sy, g.r * 1.15, g.r * 0.72, -0.18, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+
+      // White specular center on Present orb
+      const [hu, hv] = pathFn(headP);
+      const [hx, hy] = proj(hu, hv);
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.ellipse(hx, hy, 5.5, 3.6, -0.18, 0, Math.PI * 2);
+      ctx.fill();
+
+      const [lx, ly] = proj(-0.84, 0.78);
+      ctx.font = `800 14px ${MONO_FONT}`;
+      ctx.fillStyle = "#e2e8f0";
+      ctx.fillText("R→G→B CHRONO-MOTION TRAILS", lx, ly);
+      ctx.restore();
+    }
+
+    registerScene({
+      width: 1920,
+      height: 1080,
+      fps: 60,
+      totalDuration: 3.0,
+      onFrame({ ctx, gl, W, H, t, total }) {
+        drawStageBackdrop(ctx, W, H, t, {
+          accentA: "#6c8cff",
+          accentB: "#3ad29f",
+          gridAlpha: 0.075,
+        });
+        drawDepthParticles(ctx, W, H, t, 40);
+
+        const explodeP = springProgress(t, { delay: 0.04, duration: 0.75, damping: 14, stiffness: 175 });
+        const cutFlash = Math.exp(-Math.pow((t - 1.10) * 5.8, 2)); // Synced to cues.json @ 4.10s (local 1.10s)
+
+        const camYaw = Math.sin(t * 0.85) * 0.14;
+        const cameraPos = [2.85 + camYaw, 4.10, 6.12];
+        const cameraTarget = [-1.42, 0.02, 0];
+        const fovDeg = 34;
+
+        const proj = mat4.perspective((fovDeg * Math.PI) / 180, W / H, 0.1, 80);
+        const view = mat4.lookAt(cameraPos, cameraTarget);
+        const vp = mat4.multiply(proj, view);
+
+        const slabHeights = [-1.52, -0.50, 0.50, 1.52];
+        const slabInfos = [
+          {
+            idx: 0,
+            pos: [0, lerp(-0.24, slabHeights[0], explodeP), 0],
+            rot: [0, -0.22 + Math.sin(t * 0.7) * 0.03, 0],
+            color: [0.22, 0.28, 0.42],
+            emissive: [0.02, 0.04, 0.06],
+            alpha: 0.96,
+          },
+          {
+            idx: 1,
+            pos: [0, lerp(-0.08, slabHeights[1], explodeP), 0],
+            rot: [0, -0.22 + Math.sin(t * 0.7) * 0.03, 0],
+            color: [0.85, 0.42, 0.36],
+            emissive: [0.12 * cutFlash, 0.05 * cutFlash, 0.06 * cutFlash],
+            alpha: 0.84,
+          },
+          {
+            idx: 2,
+            pos: [0, lerp(0.08, slabHeights[2], explodeP), 0],
+            rot: [0, -0.22 + Math.sin(t * 0.7) * 0.03, 0],
+            color: [0.424, 0.549, 1.0],
+            emissive: [0.05, 0.08, 0.22],
+            alpha: 0.80,
+          },
+          {
+            idx: 3,
+            pos: [0, lerp(0.24, slabHeights[3], explodeP), 0],
+            rot: [0, -0.22 + Math.sin(t * 0.7) * 0.03, 0],
+            color: [0.227, 0.824, 0.624],
+            emissive: [0.04, 0.16, 0.12],
+            alpha: 0.78,
+          },
+        ];
+
+        // Vertical guide pillars on corners in 3D
+        const slabYaw = -0.22 + Math.sin(t * 0.7) * 0.03;
+        const cornerOff = [
+          [-SLAB_W * 0.48, -SLAB_D * 0.48],
+          [SLAB_W * 0.48, -SLAB_D * 0.48],
+          [SLAB_W * 0.48, SLAB_D * 0.48],
+          [-SLAB_W * 0.48, SLAB_D * 0.48],
+        ];
+        const pillarObjs = cornerOff.map(([lx, lz]) => {
+          const c = Math.cos(slabYaw), s = Math.sin(slabYaw);
+          return {
+            mesh: railPillar,
+            pos: [lx * c + lz * s, 0, -lx * s + lz * c],
+            rot: [0, slabYaw, 0],
+            scale: [1, explodeP, 1],
+            color: [0.48, 0.58, 0.82],
+            emissive: [0.04, 0.06, 0.14],
+            roughness: 0.25,
+            metallic: 0.9,
+            alpha: 0.35,
+          };
+        });
+
+        // Render 3D WebGL2 slabs bottom-to-top
+        if (gl) {
+          gl.render({
+            cameraPos,
+            cameraTarget,
+            fovDeg,
+            keyColor: [0.78, 0.88, 1.0],
+            fillColor: [0.23, 0.85, 0.64],
+            objects: [
+              ...pillarObjs,
+              ...slabInfos.map((s) => ({
+                mesh: slabMesh,
+                pos: s.pos,
+                rot: s.rot,
+                color: s.color,
+                emissive: s.emissive,
+                roughness: 0.18,
+                metallic: 0.82,
+                alpha: s.alpha,
+              })),
+            ],
+          });
+          ctx.drawImage(gl.canvas, 0, 0, W, H);
+        }
+
+        // Draw projected 2D motion telemetry directly on each 3D slab surface (bottom -> top)
+        const slabProjectors = slabInfos.map((s) => makeSlabProjector(s.pos, s.rot, vp, W, H));
+        drawSlab0Plateau(ctx, slabProjectors[0], t);
+        drawSlab1SceneCuts(ctx, slabProjectors[1], t, cutFlash);
+        drawSlab2OpticalFlow(ctx, slabProjectors[2], t);
+        drawSlab3ChronoTrails(ctx, slabProjectors[3], t);
+
+        // ---------- Left Editorial Callout & 4 Telemetry Cards ----------
+        const leftX = 96;
+        const headP = springProgress(t, { delay: 0.05, duration: 0.55 });
+
+        ctx.save();
+        ctx.globalAlpha = clamp01(headP * 1.4);
+        drawPill(ctx, leftX, 126, "STAGE 01  ·  COMPUTER VISION DECONSTRUCTION", {
+          fg: "#a5b4fc",
+          bg: "rgba(108, 140, 255, 0.14)",
+          border: "rgba(108, 140, 255, 0.45)",
+          font: `700 15px ${MONO_FONT}`,
+          height: 36,
+        });
+
+        ctx.font = `900 58px ${UI_FONT}`;
+        ctx.fillStyle = "#f8fafc";
+        ctx.fillText("01 / CV MOTION", leftX, 224 + (1 - headP) * 24);
+        const capGrad = ctx.createLinearGradient(leftX, 240, leftX + 420, 290);
+        capGrad.addColorStop(0, "#6c8cff");
+        capGrad.addColorStop(1, "#3ad29f");
+        ctx.fillStyle = capGrad;
+        ctx.fillText("CAPTURE", leftX, 286 + (1 - headP) * 24);
+        ctx.restore();
+
+        const cards = [
+          {
+            idx: "04",
+            title: "RGB Chrono-Motion Trails",
+            sub: "Red (Past) → Green (Mid) → Blue (Present) trail sheets",
+            accent: "#3ad29f",
+            slabIdx: 3,
+            active: t < 0.75,
+          },
+          {
+            idx: "03",
+            title: "Optical Flow Vectors",
+            sub: "Dense Farneback field + Savitzky-Golay smoothing",
+            accent: "#6c8cff",
+            slabIdx: 2,
+            active: t >= 0.45 && t < 1.05,
+          },
+          {
+            idx: "02",
+            title: "scene_cuts.json · CUT @ f14",
+            sub: "Automated hard-cut detector & transition frame pairs",
+            accent: "#ffb454",
+            slabIdx: 1,
+            active: t >= 0.95 && t < 1.95,
+            flash: cutFlash,
+          },
+          {
+            idx: "01",
+            title: "0.00ms JITTER · CATMULL-ROM LUT",
+            sub: "Plateau-locked stationary windows at 60/120 FPS",
+            accent: "#3ad29f",
+            slabIdx: 0,
+            active: t >= 1.80,
+          },
+        ];
+
+        cards.forEach((card, i) => {
+          const cp = springProgress(t, { delay: 0.14 + i * 0.10, duration: 0.55 });
+          const cy = 336 + i * 158;
+          const cw = 612;
+          const ch = 134;
+          const slideX = leftX - (1 - cp) * 60;
+          const isLit = card.active || (card.flash && card.flash > 0.25);
+
+          ctx.save();
+          ctx.globalAlpha = clamp01(cp * 1.4);
+
+          drawGlassCard(ctx, slideX, cy, cw, ch, {
+            radius: 16,
+            fill: isLit ? "rgba(18, 26, 46, 0.92)" : "rgba(13, 18, 32, 0.80)",
+            border: isLit ? card.accent : "rgba(148, 175, 255, 0.22)",
+            glow: isLit ? `${card.accent}55` : null,
+          });
+
+          // Index pill
+          drawPill(ctx, slideX + 22, cy + 24, card.idx, {
+            fg: card.accent,
+            bg: "rgba(15, 23, 42, 0.9)",
+            border: `${card.accent}88`,
+            font: `800 15px ${MONO_FONT}`,
+            padX: 12,
+            height: 30,
+          });
+
+          // Title & subtext
+          ctx.font = `800 23px ${UI_FONT}`;
+          ctx.fillStyle = "#f8fafc";
+          ctx.fillText(card.title, slideX + 84, cy + 47);
+
+          ctx.font = `500 17px ${UI_FONT}`;
+          ctx.fillStyle = "#94a3b8";
+          ctx.fillText(card.sub, slideX + 24, cy + 96);
+
+          // Leader dashed connector from card right edge to corresponding 3D slab left edge
+          const [targetX, targetY] = slabProjectors[card.slabIdx](-0.98, 0.0, 0);
+          ctx.strokeStyle = isLit ? card.accent : "rgba(148, 175, 255, 0.34)";
+          ctx.lineWidth = isLit ? 2.2 : 1.4;
+          ctx.setLineDash([6, 6]);
+          ctx.beginPath();
+          ctx.moveTo(slideX + cw + 4, cy + ch * 0.5);
+          ctx.lineTo(lerp(slideX + cw + 4, targetX - 18, cp), targetY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Endpoint dot on 3D slab edge
+          if (cp > 0.45) {
+            ctx.fillStyle = card.accent;
+            ctx.beginPath();
+            ctx.arc(targetX - 16, targetY, isLit ? 5.5 : 4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          ctx.restore();
+        });
+
+        drawCornerHud(ctx, W, H, t, total, "KINEARC V3.0 · 02 CV CAPTURE");
+      },
+    });
+  </script>
+</body>
+</html>

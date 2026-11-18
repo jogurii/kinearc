@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>kinearc v3.0 — 04 Annotate Range</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #06070c;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <script type="module">
+    import {
+      registerScene,
+      createBoxMesh,
+      createCrystalMesh,
+      createTorusMesh,
+      drawStageBackdrop,
+      drawDepthParticles,
+      drawGlassCard,
+      drawPill,
+      drawCornerHud,
+      roundRectPath,
+      springProgress,
+      easeOutCubic,
+      easeInOutCubic,
+      smoothstep,
+      clamp01,
+      lerp,
+      mat4,
+    } from "./kinearc-gl3d.js";
+
+    const UI_FONT = '"Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
+    const MONO_FONT = 'ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace';
+
+    const workbenchSlab = createBoxMesh(8.6, 0.22, 5.2);
+    const accentRail = createBoxMesh(8.64, 0.06, 0.14);
+    const bouncePrism = createCrystalMesh(8, 0.56, 1.32, 0.26);
+    const bounceRing = createTorusMesh(0.82, 0.038, 64, 14);
+
+    function drawCursor(ctx, x, y, clicking = false) {
+      ctx.save();
+      ctx.translate(x, y);
+      const s = clicking ? 0.86 : 1.0;
+      ctx.scale(s, s);
+      ctx.shadowColor = "rgba(0, 0, 0, 0.65)";
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetY = 4;
+
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, 24);
+      ctx.lineTo(6.5, 18.5);
+      ctx.lineTo(12, 29);
+      ctx.lineTo(15.5, 27);
+      ctx.lineTo(10, 16.5);
+      ctx.lineTo(18.5, 16.5);
+      ctx.closePath();
+      ctx.fillStyle = "#ffffff";
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#0b0e17";
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawClickRipple(ctx, x, y, pulse, color = "#ffb454") {
+      if (pulse <= 0.01) return;
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = pulse * 0.85;
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.arc(x, y, (1 - pulse) * 34 + 8, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    registerScene({
+      width: 1920,
+      height: 1080,
+      fps: 60,
+      totalDuration: 3.0,
+      onFrame({ ctx, gl, W, H, t, total }) {
+        drawStageBackdrop(ctx, W, H, t, {
+          accentA: "#6c8cff",
+          accentB: "#ffb454",
+          gridAlpha: 0.065,
+        });
+        drawDepthParticles(ctx, W, H, t, 32);
+
+        const riserGlow = smoothstep(2.35, 3.0, t); // synced with sfx/riser.wav at 11.90s (local 2.40s)
+
+        // --- PASS 1: Slanted 3D Workbench Slab in Perspective Backdrop ---
+        if (gl) {
+          const slabYaw = -0.34 + Math.sin(t * 0.65) * 0.05;
+          gl.render({
+            cameraPos: [0.4, 2.5, 6.9],
+            cameraTarget: [0, -0.25, 0],
+            fovDeg: 40,
+            keyColor: [0.62, 0.78, 1.0],
+            fillColor: [1.0, 0.71, 0.33],
+            objects: [
+              {
+                mesh: workbenchSlab,
+                pos: [0.25, -1.12, -0.9],
+                rot: [0.36, slabYaw, 0.08],
+                color: [0.14, 0.18, 0.28],
+                emissive: [0.02, 0.03 + 0.04 * riserGlow, 0.07 + 0.06 * riserGlow],
+                roughness: 0.24,
+                metallic: 0.88,
+                alpha: 0.92,
+              },
+              {
+                mesh: accentRail,
+                pos: [0.25, -1.04, -0.9],
+                rot: [0.36, slabYaw, 0.08],
+                color: [0.424, 0.549, 1.0],
+                emissive: [0.12, 0.18, 0.42],
+                roughness: 0.16,
+                metallic: 0.9,
+                alpha: 1.0,
+              },
+            ],
+          });
+          ctx.drawImage(gl.canvas, 0, 0, W, H);
+        }
+
+        // --- Ultra-Clean Dark UI Workbench Window ---
+        const winIn = springProgress(t, { delay: 0.0, duration: 0.42, damping: 16, stiffness: 220 });
+        const winX = 128;
+        const winY = 104;
+        const winW = 1664;
+        const winH = 872;
+
+        ctx.save();
+        ctx.globalAlpha = clamp01(0.45 + 0.55 * winIn);
+
+        drawGlassCard(ctx, winX, winY, winW, winH, {
+          radius: 20,
+          fill: "rgba(11, 14, 23, 0.93)",
+          border: riserGlow > 0.1 ? `rgba(58, 210, 159, ${0.35 + 0.35 * riserGlow})` : "rgba(148, 175, 255, 0.28)",
+          glow: riserGlow > 0.1 ? "rgba(58, 210, 159, 0.26)" : "rgba(0, 0, 0, 0.6)",
+        });
+
+        // Window top chrome bar
+        roundRectPath(ctx, winX, winY, winW, 64, 20);
+        ctx.fillStyle = "rgba(17, 23, 40, 0.95)";
+        ctx.fill();
+        ctx.fillStyle = "rgba(148, 175, 255, 0.16)";
+        ctx.fillRect(winX, winY + 63, winW, 1.2);
+
+        // Window traffic-light dots
+        ["#ff5d7a", "#ffb454", "#3ad29f"].forEach((col, idx) => {
+          ctx.fillStyle = col;
+          ctx.beginPath();
+          ctx.arc(winX + 32 + idx * 22, winY + 32, 6, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        ctx.font = `700 17px ${MONO_FONT}`;
+        ctx.fillStyle = "#94a3b8";
+        ctx.fillText("03 / WORKBENCH ANNOTATOR  ·  kinearc_ui.py  ·  selection.json", winX + 114, winY + 38);
+
+        // Status pill top-right: OPEN -> flips to DONE (#3ad29f) at t=1.90s
+        const isDone = t >= 1.90;
+        const donePop = isDone ? springProgress(t, { delay: 1.90, duration: 0.38, damping: 11, stiffness: 260 }) : 0;
+        const statusScale = isDone ? 0.92 + 0.08 * donePop : 1.0;
+        ctx.save();
+        const badgeCenterX = winX + winW - 92;
+        const badgeCenterY = winY + 32;
+        ctx.translate(badgeCenterX, badgeCenterY);
+        ctx.scale(statusScale, statusScale);
+        drawPill(ctx, -56, -17, isDone ? "● DONE" : "○ OPEN", {
+          fg: isDone ? "#ecfdf5" : "#fef3c7",
+          bg: isDone ? "rgba(58, 210, 159, 0.24)" : "rgba(255, 180, 84, 0.16)",
+          border: isDone ? "#3ad29f" : "#ffb454",
+          font: `800 15px ${MONO_FONT}`,
+          padX: 16,
+          height: 34,
+        });
+        ctx.restore();
+
+        // --- Stage Viewport Area (Left Top) ---
+        const vpX = winX + 34;
+        const vpY = winY + 86;
+        const vpW = 970;
+        const vpH = 492;
+
+        roundRectPath(ctx, vpX, vpY, vpW, vpH, 14);
+        ctx.fillStyle = "#080b13";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(148, 175, 255, 0.22)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Viewport internal perspective grid & shadow
+        ctx.save();
+        roundRectPath(ctx, vpX, vpY, vpW, vpH, 14);
+        ctx.clip();
+        ctx.strokeStyle = "rgba(108, 140, 255, 0.09)";
+        ctx.lineWidth = 1;
+        for (let gx = vpX + 48; gx < vpX + vpW; gx += 48) {
+          ctx.beginPath();
+          ctx.moveTo(gx, vpY);
+          ctx.lineTo(gx, vpY + vpH);
+          ctx.stroke();
+        }
+        for (let gy = vpY + 48; gy < vpY + vpH; gy += 48) {
+          ctx.beginPath();
+          ctx.moveTo(vpX, gy);
+          ctx.lineTo(vpX + vpW, gy);
+          ctx.stroke();
+        }
+
+        // Box coordinate mapping [420, 260, 980, 740] in 1920x1080 space mapped inside vp
+        const boxTargetX = vpX + (420 / 1920) * vpW;
+        const boxTargetY = vpY + (260 / 1080) * vpH;
+        const boxTargetW = ((980 - 420) / 1920) * vpW;
+        const boxTargetH = ((740 - 260) / 1080) * vpH;
+        const objScreenCenterX = boxTargetX + boxTargetW * 0.5;
+        const objFloorY = boxTargetY + boxTargetH * 0.88;
+
+        // Floor shadow under bouncing 3D object
+        const bouncePhase = Math.abs(Math.sin(t * 4.2));
+        const shadScale = lerp(1.0, 0.58, bouncePhase);
+        ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+        ctx.beginPath();
+        ctx.ellipse(objScreenCenterX, objFloorY, 74 * shadScale, 18 * shadScale, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // --- PASS 2: Bouncing 3D Object inside Viewport ---
+        if (gl) {
+          // Shift cameraTarget horizontally & vertically so world [0, 0, 0] lands at objScreenCenterX
+          const ndcTargetX = (objScreenCenterX / W) * 2 - 1;
+          const ndcTargetY = 1 - ((boxTargetY + boxTargetH * 0.52) / H) * 2;
+          const camDist = 6.2;
+          const halfHWorld = Math.tan((40 * Math.PI) / 360) * camDist;
+          const halfWWorld = halfHWorld * (W / H);
+          const worldCenterX = -ndcTargetX * halfWWorld;
+          const worldCenterY = -ndcTargetY * halfHWorld;
+
+          const bounceY = bouncePhase * 0.52;
+          gl.render({
+            cameraPos: [worldCenterX, worldCenterY + 0.35, camDist],
+            cameraTarget: [worldCenterX, worldCenterY, 0],
+            fovDeg: 40,
+            keyColor: [0.75, 0.88, 1.0],
+            fillColor: [0.23, 0.86, 0.64],
+            objects: [
+              {
+                mesh: bounceRing,
+                pos: [0, bounceY - 0.15, 0],
+                rot: [1.15, t * 1.6, 0.35],
+                color: [0.227, 0.824, 0.624],
+                emissive: [0.04, 0.15, 0.11],
+                roughness: 0.18,
+                metallic: 0.9,
+                alpha: 1.0,
+              },
+              {
+                mesh: bouncePrism,
+                pos: [0, bounceY, 0],
+                rot: [0.18, t * 1.45, Math.sin(t * 4.2) * 0.08],
+                color: [0.424, 0.549, 1.0],
+                emissive: [0.06, 0.10, 0.25],
+                roughness: 0.12,
+                metallic: 0.92,
+                alpha: 1.0,
+              },
+            ],
+          });
+
+          ctx.save();
+          roundRectPath(ctx, vpX, vpY, vpW, vpH, 14);
+          ctx.clip();
+          ctx.drawImage(gl.canvas, 0, 0, W, H);
+          ctx.restore();
+        }
+
+        // Viewport right-side subtle live readout
+        drawPill(ctx, vpX + 18, vpY + 16, "STAGE VIEWPORT · 1920×1080", {
+          fg: "#cbd5e1",
+          bg: "rgba(15, 20, 34, 0.82)",
+          border: "rgba(148, 175, 255, 0.3)",
+          font: `700 13px ${MONO_FONT}`,
+          padX: 12,
+          height: 28,
+        });
+        drawGlassCard(ctx, vpX + vpW - 292, vpY + 20, 272, 134, {
+          radius: 12,
+          fill: "rgba(13, 18, 32, 0.82)",
+          border: "rgba(108, 140, 255, 0.25)",
+        });
+        ctx.font = `700 13px ${MONO_FONT}`;
+        ctx.fillStyle = "#8ba6ff";
+        ctx.fillText("LIVE OBJECT TELEMETRY", vpX + vpW - 274, vpY + 48);
+        ctx.fillStyle = "#e2e8f0";
+        ctx.fillText("TARGET : PRISM_BOUNCE_01", vpX + vpW - 274, vpY + 78);
+        ctx.fillStyle = "#3ad29f";
+        ctx.fillText(`OFFSET : Y +${(bouncePhase * 52).toFixed(1)}px`, vpX + vpW - 274, vpY + 104);
+        ctx.fillStyle = "#ffb454";
+        ctx.fillText("CUT    : f10 .. f35 (25f)", vpX + vpW - 274, vpY + 130);
+
+        // --- Timeline & [ In f10 -> Out f35 ] Controls (Bottom Left) ---
+        const tlX = vpX;
+        const tlY = vpY + vpH + 22;
+        const tlW = vpW;
+        const tlH = 246;
+        drawGlassCard(ctx, tlX, tlY, tlW, tlH, {
+          radius: 14,
+          fill: "rgba(14, 19, 34, 0.90)",
+          border: "rgba(148, 175, 255, 0.22)",
+        });
+
+        // Buttons: [ In f10 and Out f35 ]
+        const inClicked = t >= 0.10;
+        const outClicked = t >= 0.48;
+        const inBtnX = tlX + 24;
+        const inBtnY = tlY + 22;
+        const outBtnX = tlX + 162;
+        const outBtnY = tlY + 22;
+
+        drawPill(ctx, inBtnX, inBtnY, "[ In f10", {
+          fg: inClicked ? "#0f172a" : "#e2e8f0",
+          bg: inClicked ? "#ffb454" : "rgba(30, 41, 59, 0.85)",
+          border: inClicked ? "#ffb454" : "rgba(148, 175, 255, 0.35)",
+          font: `800 16px ${MONO_FONT}`,
+          padX: 18,
+          height: 38,
+        });
+
+        drawPill(ctx, outBtnX, outBtnY, "Out f35 ]", {
+          fg: outClicked ? "#0f172a" : "#e2e8f0",
+          bg: outClicked ? "#ffb454" : "rgba(30, 41, 59, 0.85)",
+          border: outClicked ? "#ffb454" : "rgba(148, 175, 255, 0.35)",
+          font: `800 16px ${MONO_FONT}`,
+          padX: 18,
+          height: 38,
+        });
+
+        ctx.font = `700 15px ${MONO_FONT}`;
+        ctx.fillStyle = outClicked ? "#ffb454" : "#64748b";
+        ctx.fillText(outClicked ? "ACTIVE RANGE: f10 → f35  (0.42s)" : "SELECT RANGE...", tlX + 318, tlY + 46);
+
+        // Timeline frame track (0 .. 60)
+        const trackX = tlX + 26;
+        const trackY = tlY + 92;
+        const trackW = tlW - 52;
+        const trackH = 92;
+        roundRectPath(ctx, trackX, trackY, trackW, trackH, 10);
+        ctx.fillStyle = "rgba(8, 11, 19, 0.92)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.18)";
+        ctx.stroke();
+
+        // Ruler ticks f0..f60
+        ctx.font = `600 12px ${MONO_FONT}`;
+        for (let f = 0; f <= 60; f += 5) {
+          const fx = trackX + (f / 60) * trackW;
+          ctx.strokeStyle = f % 10 === 0 ? "rgba(148, 163, 184, 0.45)" : "rgba(148, 163, 184, 0.2)";
+          ctx.beginPath();
+          ctx.moveTo(fx, trackY);
+          ctx.lineTo(fx, trackY + (f % 10 === 0 ? 18 : 10));
+          ctx.stroke();
+          if (f % 10 === 0) {
+            ctx.fillStyle = "#64748b";
+            ctx.fillText(`f${f}`, fx + 4, trackY + 26);
+          }
+        }
+
+        // Playhead line (drawn cleanly behind amber range pill)
+        const playF = 10 + ((t * 24) % 25);
+        const playX = trackX + (playF / 60) * trackW;
+        ctx.strokeStyle = "rgba(108, 140, 255, 0.85)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(playX, trackY - 6);
+        ctx.lineTo(playX, trackY + trackH + 6);
+        ctx.stroke();
+        ctx.fillStyle = "#8ba6ff";
+        ctx.beginPath();
+        ctx.moveTo(playX, trackY - 2);
+        ctx.lineTo(playX - 6, trackY - 10);
+        ctx.lineTo(playX + 6, trackY - 10);
+        ctx.closePath();
+        ctx.fill();
+
+        // Highlighted amber range [f10 .. f35]
+        const rStart = trackX + (10 / 60) * trackW;
+        const rEndTarget = trackX + (35 / 60) * trackW;
+        const rangeSweep = outClicked ? easeOutCubic(clamp01((t - 0.48) / 0.28)) : (inClicked ? 0.08 : 0);
+        if (rangeSweep > 0) {
+          const rw = (rEndTarget - rStart) * rangeSweep;
+          roundRectPath(ctx, rStart, trackY + 34, Math.max(12, rw), 46, 8);
+          ctx.fillStyle = "rgba(255, 180, 84, 0.28)";
+          ctx.fill();
+          ctx.strokeStyle = "#ffb454";
+          ctx.lineWidth = 2.2;
+          ctx.stroke();
+
+          if (outClicked) {
+            ctx.font = `800 14px ${MONO_FONT}`;
+            ctx.fillStyle = "#fef3c7";
+            ctx.fillText("AMBER CLIP RANGE  [f10 .. f35]", rStart + 18, trackY + 62);
+          }
+        }
+
+        // --- Neon Crimson Box Drag [420, 260, 980, 740] ---
+        const dragP = easeInOutCubic(clamp01((t - 0.65) / 0.68));
+        if (t >= 0.65) {
+          const curW = lerp(18, boxTargetW, dragP);
+          const curH = lerp(18, boxTargetH, dragP);
+          const x2 = Math.round(lerp(420, 980, dragP));
+          const y2 = Math.round(lerp(260, 740, dragP));
+
+          ctx.save();
+          roundRectPath(ctx, boxTargetX, boxTargetY, curW, curH, 6);
+          ctx.fillStyle = "rgba(255, 93, 122, 0.12)";
+          ctx.fill();
+          ctx.strokeStyle = "#ff5d7a";
+          ctx.lineWidth = 2.8;
+          ctx.shadowColor = "rgba(255, 93, 122, 0.65)";
+          ctx.shadowBlur = 16;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+
+          // Precision corner handles
+          const corners = [
+            [boxTargetX, boxTargetY],
+            [boxTargetX + curW, boxTargetY],
+            [boxTargetX + curW, boxTargetY + curH],
+            [boxTargetX, boxTargetY + curH],
+          ];
+          ctx.fillStyle = "#ffffff";
+          for (const [cx, cy] of corners) {
+            ctx.fillRect(cx - 4, cy - 4, 8, 8);
+          }
+
+          drawPill(ctx, boxTargetX, boxTargetY - 38, `Box [420, 260, ${x2}, ${y2}]`, {
+            fg: "#fff1f2",
+            bg: "rgba(190, 18, 60, 0.92)",
+            border: "#ff5d7a",
+            font: `800 15px ${MONO_FONT}`,
+            padX: 14,
+            height: 30,
+          });
+          ctx.restore();
+        }
+
+        // --- Right Inspector Drawer: selection.json + Copy AI Prompt ---
+        const insX = vpX + vpW + 24;
+        const insY = vpY;
+        const insW = winW - 68 - vpW - 24;
+        const insH = vpH + 22 + tlH;
+
+        drawGlassCard(ctx, insX, insY, insW, insH, {
+          radius: 14,
+          fill: "rgba(14, 19, 34, 0.92)",
+          border: "rgba(148, 175, 255, 0.25)",
+        });
+
+        ctx.font = `800 19px ${UI_FONT}`;
+        ctx.fillStyle = "#f8fafc";
+        ctx.fillText("Inspector  ·  selection.json", insX + 26, insY + 42);
+
+        // Inspector status badge mirroring top bar
+        drawPill(ctx, insX + insW - 122, insY + 18, isDone ? "DONE" : "OPEN", {
+          fg: isDone ? "#ecfdf5" : "#fef3c7",
+          bg: isDone ? "rgba(58, 210, 159, 0.25)" : "rgba(255, 180, 84, 0.16)",
+          border: isDone ? "#3ad29f" : "#ffb454",
+          font: `800 14px ${MONO_FONT}`,
+          padX: 14,
+          height: 30,
+        });
+
+        // Code block inside Inspector
+        const codeX = insX + 22;
+        const codeY = insY + 68;
+        const codeW = insW - 44;
+        const codeH = 540;
+        roundRectPath(ctx, codeX, codeY, codeW, codeH, 12);
+        ctx.fillStyle = "#070910";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.2)";
+        ctx.stroke();
+
+        const boxLocked = t >= 1.32;
+        const boxStr = t < 0.65
+          ? "null"
+          : (boxLocked
+            ? "[420, 260, 980, 740]"
+            : `[420, 260, ${Math.round(lerp(420, 980, dragP))}, ${Math.round(lerp(260, 740, dragP))}]`);
+
+        const jsonLines = [
+          { k: "{", v: "", c: "#64748b", vis: true },
+          { k: '  "project": ', v: '"kinearc-promo-3d",', c: "#3ad29f", vis: true },
+          { k: '  "scene": ', v: '"04_annotate_range.html",', c: "#3ad29f", vis: true },
+          { k: '  "inFrame": ', v: inClicked ? "10," : "null,", c: "#ffb454", vis: true },
+          { k: '  "outFrame": ', v: outClicked ? "35," : "null,", c: "#ffb454", vis: true },
+          { k: '  "range": ', v: outClicked ? "[10, 35]," : "[10, ...],", c: "#ffb454", vis: inClicked },
+          { k: '  "box": ', v: `${boxStr},`, c: "#ff5d7a", vis: true },
+          { k: '  "coordSpace": ', v: '"1920x1080",', c: "#8ba6ff", vis: t >= 0.72 },
+          { k: '  "note": ', v: '"Snap bounce overshoot",', c: "#e2e8f0", vis: t >= 1.25 },
+          { k: '  "mae": ', v: "0.38,", c: "#3ad29f", vis: t >= 1.35 },
+          { k: '  "status": ', v: isDone ? '"done"' : '"open"', c: isDone ? "#3ad29f" : "#ffb454", vis: true },
+          { k: "}", v: "", c: "#64748b", vis: true },
+        ];
+
+        ctx.font = `600 18px ${MONO_FONT}`;
+        jsonLines.forEach((line, idx) => {
+          if (!line.vis) return;
+          const ly = codeY + 46 + idx * 41;
+          ctx.fillStyle = "#8ba6ff";
+          ctx.fillText(line.k, codeX + 24, ly);
+          const kw = ctx.measureText(line.k).width;
+          ctx.fillStyle = line.c;
+          ctx.fillText(line.v, codeX + 24 + kw, ly);
+        });
+
+        // Copy AI Prompt Button
+        const copyBtnX = insX + 22;
+        const copyBtnY = insY + insH - 122;
+        const copyBtnW = insW - 44;
+        const copyBtnH = 58;
+        const copyPress = Math.exp(-Math.pow((t - 1.90) * 14, 2));
+
+        ctx.save();
+        const btnScale = 1 - 0.03 * copyPress;
+        ctx.translate(copyBtnX + copyBtnW * 0.5, copyBtnY + copyBtnH * 0.5);
+        ctx.scale(btnScale, btnScale);
+        roundRectPath(ctx, -copyBtnW * 0.5, -copyBtnH * 0.5, copyBtnW, copyBtnH, 12);
+        const btnGrad = ctx.createLinearGradient(-copyBtnW * 0.5, 0, copyBtnW * 0.5, 0);
+        if (isDone) {
+          btnGrad.addColorStop(0, "#10b981");
+          btnGrad.addColorStop(1, "#3ad29f");
+        } else {
+          btnGrad.addColorStop(0, "#5b7cfa");
+          btnGrad.addColorStop(1, "#6c8cff");
+        }
+        ctx.fillStyle = btnGrad;
+        ctx.shadowColor = isDone ? "rgba(58, 210, 159, 0.45)" : "rgba(108, 140, 255, 0.4)";
+        ctx.shadowBlur = 18;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        ctx.font = `800 20px ${UI_FONT}`;
+        ctx.fillStyle = "#06070c";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(isDone ? "✓  Copied AI Prompt  ·  Marked DONE" : "Copy AI Prompt", 0, 1);
+        ctx.restore();
+
+        // --- Animated Cursor Choreography ---
+        // 0.00-0.15: at [ In f10 (inBtnX + 55, inBtnY + 19)
+        // 0.15-0.48: move to Out f35 ] (outBtnX + 55, outBtnY + 19)
+        // 0.48-0.65: move to Box top-left (boxTargetX, boxTargetY)
+        // 0.65-1.33: drag to Box bottom-right (boxTargetX + boxTargetW, boxTargetY + boxTargetH)
+        // 1.33-1.88: move to Copy AI Prompt (copyBtnX + copyBtnW*0.5, copyBtnY + copyBtnH*0.5)
+        const pIn = [inBtnX + 52, inBtnY + 20];
+        const pOut = [outBtnX + 56, outBtnY + 20];
+        const pBox0 = [boxTargetX, boxTargetY];
+        const pBox1 = [boxTargetX + boxTargetW, boxTargetY + boxTargetH];
+        const pCopy = [copyBtnX + copyBtnW * 0.52, copyBtnY + copyBtnH * 0.52];
+
+        let curX, curY, isClick = false;
+        if (t < 0.16) {
+          curX = lerp(pIn[0] - 40, pIn[0], easeOutCubic(t / 0.10));
+          curY = lerp(pIn[1] + 28, pIn[1], easeOutCubic(t / 0.10));
+          isClick = Math.abs(t - 0.10) < 0.04;
+        } else if (t < 0.52) {
+          const p = easeInOutCubic((t - 0.16) / 0.30);
+          curX = lerp(pIn[0], pOut[0], p);
+          curY = lerp(pIn[1], pOut[1], p);
+          isClick = Math.abs(t - 0.48) < 0.04;
+        } else if (t < 0.65) {
+          const p = easeInOutCubic((t - 0.52) / 0.13);
+          curX = lerp(pOut[0], pBox0[0], p);
+          curY = lerp(pOut[1], pBox0[1], p);
+        } else if (t < 1.35) {
+          curX = lerp(pBox0[0], pBox1[0], dragP);
+          curY = lerp(pBox0[1], pBox1[1], dragP);
+          isClick = true;
+        } else {
+          const p = easeInOutCubic(clamp01((t - 1.35) / 0.48));
+          curX = lerp(pBox1[0], pCopy[0], p);
+          curY = lerp(pBox1[1], pCopy[1], p);
+          isClick = Math.abs(t - 1.90) < 0.05;
+        }
+
+        drawClickRipple(ctx, pIn[0], pIn[1], Math.exp(-Math.pow((t - 0.12) * 8, 2)), "#ffb454");
+        drawClickRipple(ctx, pOut[0], pOut[1], Math.exp(-Math.pow((t - 0.50) * 8, 2)), "#ffb454");
+        drawClickRipple(ctx, pCopy[0], pCopy[1], Math.exp(-Math.pow((t - 1.92) * 7, 2)), "#3ad29f");
+        drawCursor(ctx, curX, curY, isClick);
+
+        ctx.restore();
+
+        drawCornerHud(ctx, W, H, t, total, "KINEARC V3.0 · 04 ANNOTATE & AI PROMPT");
+      },
+    });
+  </script>
+</body>
+</html>

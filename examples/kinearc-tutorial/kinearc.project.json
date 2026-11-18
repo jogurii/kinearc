@@ -1,0 +1,18 @@
+{
+  "fps": 60,
+  "width": 1920,
+  "height": 1080,
+  "scenes": [
+    { "path": "scenes/01_intro_problem.html", "duration": 5.0 },
+    { "path": "scenes/02_step1_extract.html", "duration": 6.0 },
+    { "path": "scenes/03_step2_author_3d.html", "duration": 6.0 },
+    { "path": "scenes/04_step3_workbench_review.html", "duration": 7.0 },
+    { "path": "scenes/05_step4_export_4k.html", "duration": 6.0 }
+  ],
+  "audio": {
+    "bgm": "audio/bgm.wav",
+    "sfx": "audio/cues.json",
+    "bgm_vol": 0.42,
+    "fade_out": 1.6
+  }
+}

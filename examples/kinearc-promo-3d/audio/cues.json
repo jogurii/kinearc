@@ -1,0 +1,57 @@
+[
+  {
+    "file": "sfx/whoosh.wav",
+    "time": 0.05,
+    "volume": 0.75
+  },
+  {
+    "file": "sfx/lock.wav",
+    "time": 0.85,
+    "volume": 0.8
+  },
+  {
+    "file": "sfx/whoosh.wav",
+    "time": 2.95,
+    "volume": 0.75
+  },
+  {
+    "file": "sfx/click.wav",
+    "time": 4.1,
+    "volume": 0.65
+  },
+  {
+    "file": "sfx/whoosh.wav",
+    "time": 5.95,
+    "volume": 0.75
+  },
+  {
+    "file": "sfx/lock.wav",
+    "time": 8.2,
+    "volume": 0.85
+  },
+  {
+    "file": "sfx/click.wav",
+    "time": 9.6,
+    "volume": 0.7
+  },
+  {
+    "file": "sfx/lock.wav",
+    "time": 11.4,
+    "volume": 0.75
+  },
+  {
+    "file": "sfx/riser.wav",
+    "time": 11.9,
+    "volume": 0.65
+  },
+  {
+    "file": "sfx/lock.wav",
+    "time": 14.8,
+    "volume": 0.85
+  },
+  {
+    "file": "sfx/chord_hit.wav",
+    "time": 15.55,
+    "volume": 0.9
+  }
+]

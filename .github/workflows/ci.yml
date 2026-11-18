@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip && pip install opencv-python-headless numpy pytest
+
+      - name: Install FFmpeg & Chromium (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg chromium-browser || sudo apt-get install -y --no-install-recommends ffmpeg chromium
+          echo "CHROME_PATH=$(command -v google-chrome || command -v chromium || command -v chromium-browser)" >> "$GITHUB_ENV"
+
+      - name: Verify FFmpeg (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
+            winget install -e --id Gyan.FFmpeg --accept-source-agreements --accept-package-agreements
+          }
+
+      - name: Syntax check JavaScript & ESM engine modules
+        shell: bash
+        run: |
+          for f in scripts/ui/*.js engine/*.mjs examples/kinearc-promo-3d/scenes/*.js examples/kinearc-tutorial/scenes/*.js; do
+            node --check "$f"
+          done
+
+      - name: Syntax check installer & Python scripts
+        run: |
+          python -B -c "import py_compile, pathlib, tempfile; td=tempfile.mkdtemp(); [py_compile.compile(str(p), cfile=str(pathlib.Path(td)/p.name), doraise=True) for p in [pathlib.Path('install.py'), *sorted(pathlib.Path('scripts').glob('*.py'))]]"
+
+      - name: Run kinearc environment doctor
+        run: python -B scripts/kinearc_cli.py doctor --json --strict
+
+      - name: Run full pytest suite
+        run: python -B -m pytest -p no:cacheprovider tests/ -v

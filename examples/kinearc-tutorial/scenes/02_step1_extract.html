@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>kinearc Walkthrough — Step 01: Extract Motion & Cuts</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #06070c;
+    }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+import {
+  registerScene,
+  createBoxMesh,
+  createCrystalMesh,
+  createTorusMesh,
+  drawStageBackdrop,
+  drawDepthParticles,
+  drawGlassCard,
+  drawPill,
+  drawCornerHud,
+  springProgress,
+  easeOutCubic,
+  smoothstep,
+  clamp01,
+  roundRectPath,
+} from "./kinearc-gl3d.js";
+
+const TOTAL = 6.0;
+const outerCube = createBoxMesh(1.38, 1.38, 1.38);
+const innerCore = createCrystalMesh(6, 0.54, 1.12, 0.25);
+const scanRing = createTorusMesh(1.42, 0.045, 64, 16);
+
+const SANS = 'Inter, "Segoe UI", system-ui, -apple-system, sans-serif';
+const MONO = 'ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace';
+
+const STEPS = [
+  "00 WHY KINEARC",
+  "01 EXTRACT",
+  "02 AUTHOR 3D",
+  "03 WORKBENCH",
+  "04 EXPORT 4K",
+];
+
+function drawStepRail(ctx, W, y, activeIdx) {
+  ctx.save();
+  const totalW = 1180;
+  const gap = 14;
+  const pillW = (totalW - gap * (STEPS.length - 1)) / STEPS.length;
+  const startX = (W - totalW) * 0.5;
+  for (let i = 0; i < STEPS.length; i++) {
+    const x = startX + i * (pillW + gap);
+    const active = i === activeIdx;
+    roundRectPath(ctx, x, y, pillW, 38, 19);
+    ctx.fillStyle = active ? "rgba(58, 210, 159, 0.20)" : "rgba(15, 20, 34, 0.72)";
+    ctx.fill();
+    ctx.lineWidth = active ? 1.8 : 1.1;
+    ctx.strokeStyle = active ? "rgba(58, 210, 159, 0.78)" : "rgba(148, 163, 184, 0.22)";
+    ctx.stroke();
+
+    ctx.font = `700 13px ${MONO}`;
+    ctx.fillStyle = active ? "#ecfdf5" : "rgba(148, 163, 184, 0.68)";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(STEPS[i], x + pillW * 0.5, y + 19.5);
+  }
+  ctx.restore();
+}
+
+registerScene({
+  width: 1920,
+  height: 1080,
+  fps: 60,
+  totalDuration: TOTAL,
+  onFrame({ ctx, gl, W, H, t, total }) {
+    drawStageBackdrop(ctx, W, H, t, {
+      accentA: "#3ad29f",
+      accentB: "#6c8cff",
+      gridAlpha: 0.075,
+    });
+    drawDepthParticles(ctx, W, H, t, 46);
+
+    const enterP = easeOutCubic(clamp01(t / 0.42));
+    const exitP = smoothstep(total - 0.30, total, t);
+
+    // Subtle 3D rotating analysis cube rendered in WebGL2
+    if (gl) {
+      const rotSpeed = t >= 1.6 ? 0.85 : 0.45;
+      gl.render({
+        cameraPos: [0, 0.25, 4.9],
+        cameraTarget: [0, 0, 0],
+        fovDeg: 38,
+        keyColor: [0.55, 0.82, 1.0],
+        fillColor: [0.23, 0.85, 0.64],
+        objects: [
+          {
+            mesh: outerCube,
+            pos: [0, 0, 0],
+            rot: [0.42 + t * 0.35, t * rotSpeed, 0.22],
+            scale: 0.92,
+            color: [0.26, 0.38, 0.72],
+            emissive: [0.03, 0.05, 0.14],
+            roughness: 0.25,
+            metallic: 0.72,
+            alpha: 0.48,
+          },
+          {
+            mesh: innerCore,
+            pos: [0, 0, 0],
+            rot: [-0.2, -t * 1.15, 0.3],
+            scale: 0.95,
+            color: [0.23, 0.88, 0.66],
+            emissive: [0.04, 0.22, 0.16],
+            roughness: 0.16,
+            metallic: 0.85,
+            alpha: 0.96,
+          },
+          {
+            mesh: scanRing,
+            pos: [0, 0, 0],
+            rot: [1.18, t * 0.65, Math.sin(t * 1.4) * 0.3],
+            scale: 1.0,
+            color: [0.45, 0.62, 1.0],
+            emissive: [0.06, 0.10, 0.24],
+            roughness: 0.2,
+            metallic: 0.88,
+            alpha: 0.85,
+          },
+        ],
+      });
+    }
+
+    ctx.save();
+    if (exitP > 0) {
+      ctx.globalAlpha = 1 - exitP * 0.92;
+      const sc = 1 - exitP * 0.03;
+      ctx.translate(W * 0.5, H * 0.5);
+      ctx.scale(sc, sc);
+      ctx.translate(-W * 0.5, -H * 0.5);
+    }
+
+    // Header
+    ctx.save();
+    ctx.globalAlpha *= enterP;
+    ctx.translate(0, (1 - enterP) * 16);
+    drawPill(ctx, 96, 84, "STEP 01 · EXTRACT MOTION & CUTS", {
+      fg: "#6ee7b7",
+      bg: "rgba(58, 210, 159, 0.16)",
+      border: "rgba(58, 210, 159, 0.55)",
+      font: `700 16px ${MONO}`,
+      padX: 18,
+      height: 36,
+    });
+    ctx.font = `800 44px ${SANS}`;
+    ctx.fillStyle = "#f1f5f9";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText("Capture Every Frame, Motion Trail & Hard Cut", 96, 170);
+    ctx.font = `500 20px ${SANS}`;
+    ctx.fillStyle = "#94a3b8";
+    ctx.fillText("Full-FPS CV extraction detects scene cuts and audits loop seams before authoring code", 96, 203);
+    ctx.restore();
+
+    // Row 1: Terminal (left) + 3D Analysis Cube Viewport (right)
+    const termX = 96, termY = 230, termW = 1230, termH = 212;
+    const cubeX = 1356, cubeY = 230, cubeW = 468, cubeH = 212;
+
+    const termP = springProgress(t, { delay: 0.08, duration: 0.55, damping: 16, stiffness: 170 });
+    ctx.save();
+    ctx.globalAlpha *= clamp01(termP);
+    drawGlassCard(ctx, termX, termY, termW, termH, {
+      radius: 16,
+      fill: "rgba(10, 13, 22, 0.92)",
+      border: "rgba(108, 140, 255, 0.36)",
+    });
+
+    // Terminal title bar
+    roundRectPath(ctx, termX + 1, termY + 1, termW - 2, 36, 15);
+    ctx.fillStyle = "rgba(25, 31, 49, 0.85)";
+    ctx.fill();
+    for (let d = 0; d < 3; d++) {
+      ctx.fillStyle = d === 0 ? "#ff5d7a" : (d === 1 ? "#ffb454" : "#3ad29f");
+      ctx.beginPath();
+      ctx.arc(termX + 24 + d * 18, termY + 19, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.font = `700 13px ${MONO}`;
+    ctx.fillStyle = "#94a3b8";
+    ctx.textBaseline = "middle";
+    ctx.fillText("bash — kinearc extract", termX + 86, termY + 19);
+
+    const cmdFull = "python scripts/kinearc_cli.py extract ref.mp4";
+    const typeProg = clamp01((t - 0.25) / 1.25);
+    const typedLen = Math.floor(typeProg * cmdFull.length);
+    const typedCmd = cmdFull.slice(0, typedLen);
+    const executed = t >= 1.60;
+
+    ctx.textBaseline = "alphabetic";
+    ctx.font = `700 20px ${MONO}`;
+    ctx.fillStyle = "#3ad29f";
+    ctx.fillText("$", termX + 28, termY + 76);
+    ctx.fillStyle = "#f1f5f9";
+    ctx.fillText(typedCmd, termX + 52, termY + 76);
+
+    // Blinking cursor before execution
+    if (!executed && Math.floor(t * 4) % 2 === 0) {
+      const cw = ctx.measureText(typedCmd).width;
+      ctx.fillStyle = "#6c8cff";
+      ctx.fillRect(termX + 56 + cw, termY + 57, 11, 22);
+    }
+
+    if (executed) {
+      const outLines = [
+        { delay: 1.62, col: "#94a3b8", text: "[extract] 180 frames @ 60.00 fps (1920x1080) -> .kinearc_analysis/frames/" },
+        { delay: 1.80, col: "#b7c8ff", text: "[sheets]  contact_sheet.png + chrono_trail.png generated" },
+        { delay: 1.98, col: "#6ee7b7", text: "[audit]   scene_cuts.json (1 cut @ f90) · source_loop_mae: 0.84 (CLEAN)" },
+      ];
+      ctx.font = `600 16px ${MONO}`;
+      outLines.forEach((ln, idx) => {
+        const lp = clamp01((t - ln.delay) / 0.22);
+        if (lp > 0) {
+          ctx.save();
+          ctx.globalAlpha *= lp;
+          ctx.fillStyle = ln.col;
+          ctx.fillText(ln.text, termX + 28, termY + 114 + idx * 32);
+          ctx.restore();
+        }
+      });
+    }
+    ctx.restore();
+
+    // Right: 3D Analysis Cube viewport
+    ctx.save();
+    ctx.globalAlpha *= clamp01(termP);
+    drawGlassCard(ctx, cubeX, cubeY, cubeW, cubeH, {
+      radius: 16,
+      fill: "rgba(12, 16, 28, 0.86)",
+      border: "rgba(58, 210, 159, 0.42)",
+      glow: "rgba(58, 210, 159, 0.14)",
+    });
+
+    if (gl) {
+      ctx.save();
+      roundRectPath(ctx, cubeX + 2, cubeY + 2, cubeW - 4, cubeH - 4, 14);
+      ctx.clip();
+      const dh = cubeH * 1.12;
+      const dw = dh * (W / H);
+      ctx.drawImage(gl.canvas, cubeX + cubeW * 0.5 - dw * 0.5, cubeY + cubeH * 0.5 - dh * 0.5, dw, dh);
+      ctx.restore();
+    }
+
+    drawPill(ctx, cubeX + 18, cubeY + 16, "CV 3D ANALYSIS CUBE", {
+      fg: "#b7c8ff",
+      bg: "rgba(10, 14, 26, 0.78)",
+      border: "rgba(108, 140, 255, 0.45)",
+      font: `700 12px ${MONO}`,
+      padX: 12,
+      height: 26,
+    });
+    ctx.font = `700 12px ${MONO}`;
+    ctx.fillStyle = executed ? "#6ee7b7" : "#94a3b8";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText(executed ? "STATUS: INDEXED · 60 FPS" : "STATUS: READY", cubeX + 20, cubeY + cubeH - 16);
+    ctx.restore();
+
+    // Row 2: Three Artifact Cards
+    const cardY = 470, cardH = 432, cardW = 548, cardGap = 42;
+    const c1X = 96;
+    const c2X = c1X + cardW + cardGap;
+    const c3X = c2X + cardW + cardGap;
+
+    const p1 = springProgress(t, { delay: 1.65, duration: 0.62, damping: 15, stiffness: 175 });
+    const p2 = springProgress(t, { delay: 1.90, duration: 0.62, damping: 15, stiffness: 175 });
+    const p3 = springProgress(t, { delay: 2.15, duration: 0.62, damping: 15, stiffness: 175 });
+
+    // --- ARTIFACT 1: Contact Sheet ---
+    ctx.save();
+    ctx.globalAlpha *= clamp01(p1);
+    ctx.translate(0, (1 - p1) * 30);
+    drawGlassCard(ctx, c1X, cardY, cardW, cardH, {
+      radius: 18,
+      fill: "rgba(14, 19, 32, 0.88)",
+      border: "rgba(108, 140, 255, 0.40)",
+    });
+    drawPill(ctx, c1X + 24, cardY + 22, "01 · CONTACT SHEET", {
+      fg: "#c7d6ff",
+      bg: "rgba(108, 140, 255, 0.16)",
+      border: "rgba(108, 140, 255, 0.48)",
+      font: `700 13px ${MONO}`,
+      padX: 14,
+      height: 30,
+    });
+    ctx.font = `600 13px ${MONO}`;
+    ctx.fillStyle = "#8b93ad";
+    ctx.textBaseline = "middle";
+    ctx.fillText("30-frame contact_sheet.png", c1X + 228, cardY + 37);
+
+    // 5x3 thumbnail matrix
+    const cols = 5, rows = 3;
+    const gridX = c1X + 24, gridY = cardY + 72;
+    const gridW = cardW - 48, gridH = 292;
+    const cellGap = 10;
+    const cellW = (gridW - cellGap * (cols - 1)) / cols;
+    const cellH = (gridH - cellGap * (rows - 1)) / rows;
+    const scanIdx = Math.floor(Math.max(0, t - 1.6) * 4.2) % (cols * rows);
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const idx = r * cols + c;
+        const tx = gridX + c * (cellW + cellGap);
+        const ty = gridY + r * (cellH + cellGap);
+        const isScan = idx === scanIdx;
+
+        roundRectPath(ctx, tx, ty, cellW, cellH, 8);
+        ctx.fillStyle = isScan ? "rgba(108, 140, 255, 0.22)" : "rgba(10, 14, 24, 0.92)";
+        ctx.fill();
+        ctx.lineWidth = isScan ? 2.2 : 1;
+        ctx.strokeStyle = isScan ? "#3ad29f" : "rgba(148, 163, 184, 0.24)";
+        ctx.stroke();
+
+        // Miniature animated orb & bar inside each contact sheet tile
+        const u = idx / (cols * rows - 1);
+        const cx = tx + 16 + u * (cellW - 32);
+        const cy = ty + cellH * 0.56 - Math.sin(u * Math.PI) * 20;
+        ctx.fillStyle = u > 0.6 ? "#3ad29f" : "#6c8cff";
+        ctx.beginPath();
+        ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "rgba(255, 255, 255, 0.16)";
+        ctx.fillRect(tx + 10, ty + cellH - 16, (cellW - 20) * (0.25 + 0.75 * u), 4);
+
+        ctx.font = `700 10px ${MONO}`;
+        ctx.fillStyle = isScan ? "#6ee7b7" : "#94a3b8";
+        ctx.textBaseline = "top";
+        ctx.fillText(`f${idx * 10}`, tx + 7, ty + 6);
+      }
+    }
+
+    ctx.font = `600 14px ${SANS}`;
+    ctx.fillStyle = "#cbd5e1";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText("Dense storyboard thumbnails preserve exact motion spacing", c1X + 24, cardY + cardH - 26);
+    ctx.restore();
+
+    // --- ARTIFACT 2: RGB Chrono-Motion Trail ---
+    ctx.save();
+    ctx.globalAlpha *= clamp01(p2);
+    ctx.translate(0, (1 - p2) * 30);
+    drawGlassCard(ctx, c2X, cardY, cardW, cardH, {
+      radius: 18,
+      fill: "rgba(14, 19, 32, 0.88)",
+      border: "rgba(58, 210, 159, 0.42)",
+    });
+    drawPill(ctx, c2X + 24, cardY + 22, "02 · CHRONO-MOTION TRAIL", {
+      fg: "#6ee7b7",
+      bg: "rgba(58, 210, 159, 0.16)",
+      border: "rgba(58, 210, 159, 0.50)",
+      font: `700 13px ${MONO}`,
+      padX: 14,
+      height: 30,
+    });
+    ctx.font = `600 13px ${MONO}`;
+    ctx.fillStyle = "#8b93ad";
+    ctx.textBaseline = "middle";
+    ctx.fillText("chrono_trail.png", c2X + 276, cardY + 37);
+
+    const trX = c2X + 24, trY = cardY + 72, trW = cardW - 48, trH = 248;
+    roundRectPath(ctx, trX, trY, trW, trH, 12);
+    ctx.fillStyle = "#080b14";
+    ctx.fill();
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = "rgba(148, 163, 184, 0.24)";
+    ctx.stroke();
+
+    // Chrono-motion trail silhouettes: Red (Past) -> Green (Mid) -> Blue (Present)
+    ctx.save();
+    roundRectPath(ctx, trX + 1, trY + 1, trW - 2, trH - 2, 11);
+    ctx.clip();
+    const phase = (t * 0.42) % 1;
+    const trailSteps = 16;
+    for (let k = 0; k < trailSteps; k++) {
+      const f = k / (trailSteps - 1);
+      const u = (phase + f * 0.55) % 1;
+      const sx = trX + 54 + f * (trW - 108);
+      const sy = trY + trH * 0.62 - Math.sin(f * Math.PI) * 92 + Math.cos(t * 1.4 + f * 4) * 8;
+      const rCol = Math.round(255 * (1 - f));
+      const gCol = Math.round(240 * Math.sin(f * Math.PI));
+      const bCol = Math.round(255 * f);
+      const rad = 16 + Math.sin(u * Math.PI) * 10;
+
+      ctx.fillStyle = `rgba(${rCol}, ${gCol}, ${bCol}, ${0.24 + f * 0.52})`;
+      ctx.beginPath();
+      ctx.arc(sx, sy, rad, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = `rgba(${rCol}, ${gCol}, ${bCol}, 0.78)`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // RGB Legend Pills
+    const legY = cardY + 334;
+    const wR = drawPill(ctx, c2X + 24, legY, "Red = Past", {
+      fg: "#fca5a5",
+      bg: "rgba(239, 68, 68, 0.16)",
+      border: "rgba(239, 68, 68, 0.50)",
+      font: `700 12px ${MONO}`,
+      padX: 12,
+      height: 28,
+    });
+    const wG = drawPill(ctx, c2X + 34 + wR, legY, "Green = Mid", {
+      fg: "#86efac",
+      bg: "rgba(34, 197, 94, 0.16)",
+      border: "rgba(34, 197, 94, 0.50)",
+      font: `700 12px ${MONO}`,
+      padX: 12,
+      height: 28,
+    });
+    drawPill(ctx, c2X + 44 + wR + wG, legY, "Blue = Present", {
+      fg: "#93c5fd",
+      bg: "rgba(59, 130, 246, 0.16)",
+      border: "rgba(59, 130, 246, 0.50)",
+      font: `700 12px ${MONO}`,
+      padX: 12,
+      height: 28,
+    });
+
+    ctx.font = `600 14px ${SANS}`;
+    ctx.fillStyle = "#cbd5e1";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText("Visualizes trajectory arcs, velocity & overshoot at a glance", c2X + 24, cardY + cardH - 26);
+    ctx.restore();
+
+    // --- ARTIFACT 3: scene_cuts.json + source_loop_mae ---
+    ctx.save();
+    ctx.globalAlpha *= clamp01(p3);
+    ctx.translate(0, (1 - p3) * 30);
+    drawGlassCard(ctx, c3X, cardY, cardW, cardH, {
+      radius: 18,
+      fill: "rgba(14, 19, 32, 0.88)",
+      border: "rgba(58, 210, 159, 0.46)",
+      glow: "rgba(58, 210, 159, 0.14)",
+    });
+    drawPill(ctx, c3X + 24, cardY + 22, "03 · CUTS & LOOP AUDIT", {
+      fg: "#fde68a",
+      bg: "rgba(255, 180, 84, 0.16)",
+      border: "rgba(255, 180, 84, 0.52)",
+      font: `700 13px ${MONO}`,
+      padX: 14,
+      height: 30,
+    });
+    ctx.font = `600 12.5px ${MONO}`;
+    ctx.fillStyle = "#8b93ad";
+    ctx.textBaseline = "middle";
+    ctx.fillText(".kinearc_analysis/scene_cuts.json", c3X + 244, cardY + 37);
+
+    // JSON Box
+    const jx = c3X + 24, jy = cardY + 72, jw = cardW - 48, jh = 158;
+    roundRectPath(ctx, jx, jy, jw, jh, 12);
+    ctx.fillStyle = "#080b14";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(148, 163, 184, 0.24)";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    const jsonRows = [
+      { k: '"cut_index":', v: ' 0,', c: "#93c5fd" },
+      { k: '"before_frame":', v: ' 89,', c: "#fda4af" },
+      { k: '"after_frame":', v: ' 90,', c: "#6ee7b7" },
+      { k: '"delta_mae":', v: ' 68.42', c: "#ffb454" },
+    ];
+    ctx.font = `600 15px ${MONO}`;
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#64748b";
+    ctx.fillText("{", jx + 18, jy + 28);
+    jsonRows.forEach((row, idx) => {
+      const lyPos = jy + 54 + idx * 24;
+      ctx.fillStyle = "#cbd5e1";
+      ctx.fillText("  " + row.k, jx + 18, lyPos);
+      const kw = ctx.measureText("  " + row.k).width;
+      ctx.fillStyle = row.c;
+      ctx.fillText(row.v, jx + 18 + kw, lyPos);
+    });
+    ctx.fillStyle = "#64748b";
+    ctx.fillText("}", jx + 18, jy + 148);
+
+    // Mini f89 -> f90 cut preview pair inside JSON right side
+    const pairX = jx + 284, pairY = jy + 22;
+    roundRectPath(ctx, pairX, pairY, 88, 66, 8);
+    ctx.fillStyle = "rgba(108, 140, 255, 0.20)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(108, 140, 255, 0.55)";
+    ctx.stroke();
+    ctx.font = `700 12px ${MONO}`;
+    ctx.fillStyle = "#c7d6ff";
+    ctx.textAlign = "center";
+    ctx.fillText("f89", pairX + 44, pairY + 38);
+
+    ctx.fillStyle = "#ffb454";
+    ctx.fillText("→", pairX + 100, pairY + 38);
+
+    roundRectPath(ctx, pairX + 112, pairY, 88, 66, 8);
+    ctx.fillStyle = "rgba(58, 210, 159, 0.20)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(58, 210, 159, 0.58)";
+    ctx.stroke();
+    ctx.fillStyle = "#6ee7b7";
+    ctx.fillText("f90", pairX + 156, pairY + 38);
+    ctx.textAlign = "left";
+    ctx.font = `600 11px ${MONO}`;
+    ctx.fillStyle = "#ffb454";
+    ctx.fillText("HARD CUT DETECTED", pairX + 26, pairY + 92);
+
+    // Prominent source_loop_mae badge
+    const maeBoxY = cardY + 252;
+    roundRectPath(ctx, jx, maeBoxY, jw, 96, 14);
+    ctx.fillStyle = "rgba(58, 210, 159, 0.14)";
+    ctx.fill();
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = "rgba(58, 210, 159, 0.65)";
+    ctx.stroke();
+
+    ctx.font = `700 13px ${MONO}`;
+    ctx.fillStyle = "#a7f3d0";
+    ctx.fillText("METADATA.JSON · LOOP SEAM AUDIT", jx + 20, maeBoxY + 30);
+
+    ctx.font = `800 22px ${MONO}`;
+    ctx.fillStyle = "#6ee7b7";
+    ctx.fillText("source_loop_mae: 0.84 (CLEAN)", jx + 20, maeBoxY + 68);
+
+    ctx.font = `600 14px ${SANS}`;
+    ctx.fillStyle = "#cbd5e1";
+    ctx.fillText("Hard transitions & loop closure verified before coding", c3X + 24, cardY + cardH - 26);
+    ctx.restore();
+
+    drawStepRail(ctx, W, 932, 1);
+    ctx.restore();
+    drawCornerHud(ctx, W, H, t, total, "KINEARC V3.0 · STEP 01 / EXTRACT");
+  },
+});
+</script>
+</body>
+</html>

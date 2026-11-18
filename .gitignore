@@ -1,0 +1,25 @@
+# Python caches & virtualenvs
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+
+# Node / optional JS tooling
+node_modules/
+package-lock.json
+
+# Analysis & temporary render outputs
+.kinearc_analysis/
+out/
+renders/
+*.tmp
+*.log
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/

@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>kinearc Walkthrough — Step 02: Write Deterministic Scene Code</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #06070c;
+    }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+import {
+  registerScene,
+  createTorusKnotMesh,
+  createTorusMesh,
+  drawStageBackdrop,
+  drawDepthParticles,
+  drawGlassCard,
+  drawPill,
+  drawCornerHud,
+  springProgress,
+  easeOutCubic,
+  smoothstep,
+  clamp01,
+  roundRectPath,
+} from "./kinearc-gl3d.js";
+
+const TOTAL = 6.0;
+const trefoil = createTorusKnotMesh(1.0, 0.21, 2, 3, 150, 16);
+const gyroOuter = createTorusMesh(1.88, 0.046, 76, 16);
+const gyroInner = createTorusMesh(1.52, 0.056, 76, 16);
+
+const SANS = 'Inter, "Segoe UI", system-ui, -apple-system, sans-serif';
+const MONO = 'ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace';
+
+const STEPS = [
+  "00 WHY KINEARC",
+  "01 EXTRACT",
+  "02 AUTHOR 3D",
+  "03 WORKBENCH",
+  "04 EXPORT 4K",
+];
+
+function drawStepRail(ctx, W, y, activeIdx) {
+  ctx.save();
+  const totalW = 1180;
+  const gap = 14;
+  const pillW = (totalW - gap * (STEPS.length - 1)) / STEPS.length;
+  const startX = (W - totalW) * 0.5;
+  for (let i = 0; i < STEPS.length; i++) {
+    const x = startX + i * (pillW + gap);
+    const active = i === activeIdx;
+    roundRectPath(ctx, x, y, pillW, 38, 19);
+    ctx.fillStyle = active ? "rgba(108, 140, 255, 0.24)" : "rgba(15, 20, 34, 0.72)";
+    ctx.fill();
+    ctx.lineWidth = active ? 1.8 : 1.1;
+    ctx.strokeStyle = active ? "rgba(108, 140, 255, 0.80)" : "rgba(148, 163, 184, 0.22)";
+    ctx.stroke();
+
+    ctx.font = `700 13px ${MONO}`;
+    ctx.fillStyle = active ? "#e2e8f0" : "rgba(148, 163, 184, 0.68)";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(STEPS[i], x + pillW * 0.5, y + 19.5);
+  }
+  ctx.restore();
+}
+
+function drawTokenLine(ctx, x, y, tokens) {
+  let cursor = x;
+  for (const [text, color] of tokens) {
+    ctx.fillStyle = color;
+    ctx.fillText(text, cursor, y);
+    cursor += ctx.measureText(text).width;
+  }
+}
+
+const C_KW = "#c084fc";
+const C_FN = "#60a5fa";
+const C_STR = "#3ad29f";
+const C_NUM = "#ffb454";
+const C_ID = "#e2e8f0";
+const C_MUT = "#64748b";
+const C_PROP = "#93c5fd";
+
+const CODE_LINES = [
+  [[ "import ", C_KW ], [ "{ registerScene, createTorusKnotMesh,", C_ID ]],
+  [[ "         createTorusMesh } ", C_ID ], [ "from ", C_KW ], [ '"./kinearc-gl3d.js"', C_STR ], [ ";", C_MUT ]],
+  [[ "", C_ID ]],
+  [[ "const ", C_KW ], [ "knot ", C_ID ], [ "= ", C_MUT ], [ "createTorusKnotMesh", C_FN ], [ "(", C_MUT ], [ "1.0, 0.21, 2, 3", C_NUM ], [ ");", C_MUT ]],
+  [[ "const ", C_KW ], [ "gyroA ", C_ID ], [ "= ", C_MUT ], [ "createTorusMesh", C_FN ], [ "(", C_MUT ], [ "1.52, 0.056", C_NUM ], [ ");", C_MUT ]],
+  [[ "const ", C_KW ], [ "gyroB ", C_ID ], [ "= ", C_MUT ], [ "createTorusMesh", C_FN ], [ "(", C_MUT ], [ "1.88, 0.046", C_NUM ], [ ");", C_MUT ]],
+  [[ "", C_ID ]],
+  [[ "registerScene", C_FN ], [ "({", C_MUT ]],
+  [[ "  width: ", C_PROP ], [ "1920", C_NUM ], [ ", height: ", C_PROP ], [ "1080", C_NUM ], [ ", fps: ", C_PROP ], [ "60", C_NUM ], [ ", totalDuration: ", C_PROP ], [ "6.0", C_NUM ], [ ",", C_MUT ]],
+  [[ "  onFrame", C_FN ], [ "({ ctx, gl, W, H, t }) {", C_ID ]],
+  [[ "    const ", C_KW ], [ "theta ", C_ID ], [ "= t * ", C_MUT ], [ "1.15", C_NUM ], [ ";", C_MUT ]],
+  [[ "    gl.", C_ID ], [ "render", C_FN ], [ "({", C_MUT ]],
+  [[ "      objects: [", C_PROP ]],
+  [[ "        { mesh: knot,  rot: [theta * ", C_ID ], [ "0.65", C_NUM ], [ ", theta, ", C_ID ], [ "0", C_NUM ], [ "] },", C_MUT ]],
+  [[ "        { mesh: gyroA, rot: [", C_ID ], [ "1.1", C_NUM ], [ ", -theta * ", C_ID ], [ "0.9", C_NUM ], [ ", ", C_ID ], [ "0.4", C_NUM ], [ "] },", C_MUT ]],
+  [[ "        { mesh: gyroB, rot: [theta * ", C_ID ], [ "0.5", C_NUM ], [ ", ", C_ID ], [ "0.4", C_NUM ], [ ", theta] },", C_MUT ]],
+  [[ "      ],", C_MUT ]],
+  [[ "    });", C_MUT ]],
+  [[ "    ctx.", C_ID ], [ "drawImage", C_FN ], [ "(gl.canvas, ", C_ID ], [ "0, 0, W, H", C_NUM ], [ ");", C_MUT ]],
+  [[ "  },", C_MUT ]],
+  [[ "});", C_MUT ]],
+  [[ "// Exposes: window.kinearc = { fps: 60, totalDuration, seek(t) }", C_STR ]],
+];
+
+registerScene({
+  width: 1920,
+  height: 1080,
+  fps: 60,
+  totalDuration: TOTAL,
+  onFrame({ ctx, gl, W, H, t, total }) {
+    drawStageBackdrop(ctx, W, H, t, {
+      accentA: "#6c8cff",
+      accentB: "#3ad29f",
+      gridAlpha: 0.075,
+    });
+    drawDepthParticles(ctx, W, H, t, 46);
+
+    const enterP = easeOutCubic(clamp01(t / 0.42));
+    const exitP = smoothstep(total - 0.30, total, t);
+    const frameN = Math.min(Math.round(total * 60), Math.max(0, Math.round(t * 60)));
+    const theta = t * 1.15;
+    const lockBeat = springProgress(t, { delay: 2.80, duration: 0.55, damping: 14, stiffness: 190 });
+
+    // Real WebGL2 3D Trefoil Knot + Gyroscope Rings driven deterministically at t
+    if (gl) {
+      gl.render({
+        cameraPos: [Math.sin(t * 0.4) * 0.4, 0.32 + Math.cos(t * 0.35) * 0.14, 5.9],
+        cameraTarget: [0, 0, 0],
+        fovDeg: 40,
+        keyColor: [0.65, 0.80, 1.0],
+        fillColor: [0.23, 0.88, 0.66],
+        objects: [
+          {
+            mesh: trefoil,
+            pos: [0, 0, 0],
+            rot: [theta * 0.65, theta, 0.2],
+            scale: 0.94,
+            color: [0.42, 0.58, 1.0],
+            emissive: [0.06, 0.10 + 0.06 * lockBeat, 0.24],
+            roughness: 0.18,
+            metallic: 0.86,
+            alpha: 1.0,
+          },
+          {
+            mesh: gyroInner,
+            pos: [0, 0, 0],
+            rot: [1.1, -theta * 0.9, 0.4],
+            scale: 1.0,
+            color: [0.23, 0.86, 0.65],
+            emissive: [0.02, 0.15, 0.11],
+            roughness: 0.22,
+            metallic: 0.88,
+            alpha: 0.92,
+          },
+          {
+            mesh: gyroOuter,
+            pos: [0, 0, 0],
+            rot: [theta * 0.5, 0.4, theta],
+            scale: 1.0,
+            color: [1.0, 0.70, 0.32],
+            emissive: [0.16, 0.08, 0.02],
+            roughness: 0.25,
+            metallic: 0.84,
+            alpha: 0.85,
+          },
+        ],
+      });
+    }
+
+    ctx.save();
+    if (exitP > 0) {
+      ctx.globalAlpha = 1 - exitP * 0.92;
+      const sc = 1 - exitP * 0.03;
+      ctx.translate(W * 0.5, H * 0.5);
+      ctx.scale(sc, sc);
+      ctx.translate(-W * 0.5, -H * 0.5);
+    }
+
+    // Header
+    ctx.save();
+    ctx.globalAlpha *= enterP;
+    ctx.translate(0, (1 - enterP) * 16);
+    drawPill(ctx, 96, 84, "STEP 02 · WRITE DETERMINISTIC SCENE CODE", {
+      fg: "#c7d6ff",
+      bg: "rgba(108, 140, 255, 0.16)",
+      border: "rgba(108, 140, 255, 0.55)",
+      font: `700 16px ${MONO}`,
+      padX: 18,
+      height: 36,
+    });
+    ctx.font = `800 44px ${SANS}`;
+    ctx.fillStyle = "#f1f5f9";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText("Every Transform Driven by Exact Time t", 96, 170);
+    ctx.font = `500 20px ${SANS}`;
+    ctx.fillStyle = "#94a3b8";
+    ctx.fillText("Zero wall-clock timers: seek(t) guarantees identical 1080p & 4K frames", 96, 203);
+    ctx.restore();
+
+    const ideX = 96, ideY = 232, ideW = 890, ideH = 668;
+    const preX = 1020, preY = 232, preW = 804, preH = 668;
+
+    const pLeft = springProgress(t, { delay: 0.10, duration: 0.62, damping: 16, stiffness: 170 });
+    const pRight = springProgress(t, { delay: 0.22, duration: 0.62, damping: 16, stiffness: 170 });
+
+    // --- LEFT PANEL: Syntax-Highlighted IDE ---
+    ctx.save();
+    ctx.globalAlpha *= clamp01(pLeft);
+    ctx.translate(0, (1 - pLeft) * 24);
+    drawGlassCard(ctx, ideX, ideY, ideW, ideH, {
+      radius: 18,
+      fill: "rgba(10, 13, 23, 0.94)",
+      border: "rgba(108, 140, 255, 0.42)",
+    });
+
+    // IDE Tab bar
+    roundRectPath(ctx, ideX + 1, ideY + 1, ideW - 2, 46, 17);
+    ctx.fillStyle = "rgba(21, 26, 42, 0.92)";
+    ctx.fill();
+
+    for (let d = 0; d < 3; d++) {
+      ctx.fillStyle = d === 0 ? "#ff5d7a" : (d === 1 ? "#ffb454" : "#3ad29f");
+      ctx.beginPath();
+      ctx.arc(ideX + 24 + d * 17, ideY + 24, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    roundRectPath(ctx, ideX + 86, ideY + 8, 178, 32, 8);
+    ctx.fillStyle = "rgba(108, 140, 255, 0.18)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(108, 140, 255, 0.45)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.font = `700 13px ${MONO}`;
+    ctx.fillStyle = "#e2e8f0";
+    ctx.textBaseline = "middle";
+    ctx.fillText("scenes/hero_3d.html", ideX + 100, ideY + 24);
+
+    drawPill(ctx, ideX + ideW - 228, ideY + 10, "NO rAF · NO Date.now()", {
+      fg: "#6ee7b7",
+      bg: "rgba(58, 210, 159, 0.12)",
+      border: "rgba(58, 210, 159, 0.42)",
+      font: `700 12px ${MONO}`,
+      padX: 12,
+      height: 28,
+    });
+
+    // Code lines + active execution focus band
+    const codeTop = ideY + 62;
+    const lineH = 21.4;
+    const activeLineIdx = 10 + Math.floor((t * 1.4) % 7); // cycles cleanly inside onFrame
+
+    ctx.font = `600 14.5px ${MONO}`;
+    ctx.textBaseline = "middle";
+    for (let i = 0; i < CODE_LINES.length; i++) {
+      const ly = codeTop + i * lineH;
+      const isContract = i === CODE_LINES.length - 1;
+      if (i === activeLineIdx) {
+        ctx.fillStyle = "rgba(108, 140, 255, 0.14)";
+        ctx.fillRect(ideX + 12, ly - lineH * 0.5, ideW - 24, lineH);
+        ctx.fillStyle = "#6c8cff";
+        ctx.fillRect(ideX + 12, ly - lineH * 0.5, 3, lineH);
+      } else if (isContract) {
+        ctx.fillStyle = "rgba(58, 210, 159, 0.10)";
+        ctx.fillRect(ideX + 12, ly - lineH * 0.5, ideW - 24, lineH);
+      }
+
+      ctx.fillStyle = "rgba(100, 116, 139, 0.65)";
+      ctx.textAlign = "right";
+      ctx.fillText(String(i + 1).padStart(2, " "), ideX + 46, ly);
+      ctx.textAlign = "left";
+      drawTokenLine(ctx, ideX + 62, ly, CODE_LINES[i]);
+    }
+
+    // Active Time Cursor Footer inside IDE
+    const curBoxX = ideX + 22, curBoxY = ideY + ideH - 96, curBoxW = ideW - 44, curBoxH = 76;
+    roundRectPath(ctx, curBoxX, curBoxY, curBoxW, curBoxH, 12);
+    ctx.fillStyle = "rgba(17, 23, 40, 0.94)";
+    ctx.fill();
+    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = t >= 2.8 ? "rgba(58, 210, 159, 0.55)" : "rgba(108, 140, 255, 0.42)";
+    ctx.stroke();
+
+    ctx.font = `700 13px ${MONO}`;
+    ctx.fillStyle = "#93c5fd";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText(`window.kinearc.seek(${t.toFixed(2)})`, curBoxX + 18, curBoxY + 28);
+
+    ctx.fillStyle = "#6ee7b7";
+    ctx.textAlign = "right";
+    ctx.fillText(`t = ${t.toFixed(2)}s / 6.00s   ·   frame = f${frameN}   ·   theta = ${theta.toFixed(2)} rad`, curBoxX + curBoxW - 18, curBoxY + 28);
+    ctx.textAlign = "left";
+
+    // Scrub Track
+    const trX = curBoxX + 18, trY = curBoxY + 50, trW = curBoxW - 36, trH = 12;
+    roundRectPath(ctx, trX, trY, trW, trH, 6);
+    ctx.fillStyle = "rgba(30, 41, 59, 0.9)";
+    ctx.fill();
+
+    const progU = clamp01(t / total);
+    const fillW = Math.max(12, progU * trW);
+    const barGrad = ctx.createLinearGradient(trX, 0, trX + trW, 0);
+    barGrad.addColorStop(0, "#6c8cff");
+    barGrad.addColorStop(1, "#3ad29f");
+    roundRectPath(ctx, trX, trY, fillW, trH, 6);
+    ctx.fillStyle = barGrad;
+    ctx.fill();
+
+    const thumbX = trX + progU * trW;
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(thumbX, trY + trH * 0.5, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#6c8cff";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.restore();
+
+    // --- RIGHT PANEL: Live WebGL2 3D Preview Pane ---
+    ctx.save();
+    ctx.globalAlpha *= clamp01(pRight);
+    ctx.translate(0, (1 - pRight) * 24);
+    drawGlassCard(ctx, preX, preY, preW, preH, {
+      radius: 18,
+      fill: "rgba(10, 14, 24, 0.90)",
+      border: t >= 2.8 ? "rgba(58, 210, 159, 0.55)" : "rgba(108, 140, 255, 0.42)",
+      glow: t >= 2.8 ? "rgba(58, 210, 159, 0.18)" : "rgba(108, 140, 255, 0.14)",
+    });
+
+    // Top viewport header
+    roundRectPath(ctx, preX + 1, preY + 1, preW - 2, 46, 17);
+    ctx.fillStyle = "rgba(21, 26, 42, 0.92)";
+    ctx.fill();
+
+    drawPill(ctx, preX + 18, preY + 10, "LIVE WEBGL2 PREVIEW", {
+      fg: "#6ee7b7",
+      bg: "rgba(58, 210, 159, 0.16)",
+      border: "rgba(58, 210, 159, 0.48)",
+      font: `700 12px ${MONO}`,
+      padX: 12,
+      height: 28,
+    });
+    ctx.font = `700 13px ${MONO}`;
+    ctx.fillStyle = "#94a3b8";
+    ctx.textBaseline = "middle";
+    ctx.fillText(`?t=${t.toFixed(2)}&scale=2`, preX + 206, preY + 24);
+
+    drawPill(ctx, preX + preW - 160, preY + 10, `frame = f${frameN}`, {
+      fg: "#c7d6ff",
+      bg: "rgba(108, 140, 255, 0.18)",
+      border: "rgba(108, 140, 255, 0.52)",
+      font: `700 13px ${MONO}`,
+      padX: 14,
+      height: 28,
+    });
+
+    // Inner 3D stage box
+    const vpX = preX + 20, vpY = preY + 62, vpW = preW - 40, vpH = preH - 134;
+    roundRectPath(ctx, vpX, vpY, vpW, vpH, 14);
+    ctx.fillStyle = "#070a14";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(148, 163, 184, 0.22)";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Subtle concentric stage reticle behind 3D mesh
+    ctx.save();
+    roundRectPath(ctx, vpX + 1, vpY + 1, vpW - 2, vpH - 2, 13);
+    ctx.clip();
+    const vcx = vpX + vpW * 0.5;
+    const vcy = vpY + vpH * 0.5;
+    const radGlow = ctx.createRadialGradient(vcx, vcy, 20, vcx, vcy, 290);
+    radGlow.addColorStop(0, "rgba(108, 140, 255, 0.22)");
+    radGlow.addColorStop(0.6, "rgba(58, 210, 159, 0.08)");
+    radGlow.addColorStop(1, "transparent");
+    ctx.fillStyle = radGlow;
+    ctx.fillRect(vpX, vpY, vpW, vpH);
+
+    ctx.strokeStyle = "rgba(148, 175, 255, 0.12)";
+    ctx.lineWidth = 1;
+    for (const r of [110, 195, 275]) {
+      ctx.beginPath();
+      ctx.arc(vcx, vcy, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (gl) {
+      const dh = vpH * 1.04;
+      const dw = dh * (W / H);
+      ctx.drawImage(gl.canvas, vcx - dw * 0.5, vcy - dh * 0.5, dw, dh);
+    }
+
+    // Lock-in milestone pill at bottom of 3D viewport
+    if (t >= 2.6) {
+      const lp = clamp01((t - 2.6) / 0.35);
+      ctx.save();
+      ctx.globalAlpha *= lp;
+      const badgeTxt = `✓ DETERMINISTIC · seek(${t.toFixed(2)}) == f${frameN}`;
+      ctx.font = `700 13px ${MONO}`;
+      const bw = ctx.measureText(badgeTxt).width + 30;
+      drawPill(ctx, vcx - bw * 0.5, vpY + vpH - 46, badgeTxt, {
+        fg: "#6ee7b7",
+        bg: "rgba(10, 18, 30, 0.86)",
+        border: "rgba(58, 210, 159, 0.65)",
+        font: `700 13px ${MONO}`,
+        padX: 15,
+        height: 32,
+      });
+      ctx.restore();
+    }
+    ctx.restore();
+
+    // Preview Pane Footer Summary
+    ctx.font = `600 15px ${SANS}`;
+    ctx.fillStyle = "#cbd5e1";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Trefoil Knot + Dual Gyroscope Rings · Rendered synchronously inside onFrame()", preX + 24, preY + preH - 36);
+    ctx.restore();
+
+    drawStepRail(ctx, W, 932, 2);
+    ctx.restore();
+    drawCornerHud(ctx, W, H, t, total, "KINEARC V3.0 · STEP 02 / AUTHOR 3D");
+  },
+});
+</script>
+</body>
+</html>
