@@ -1180,6 +1180,8 @@ def test_headless_browser_e2e_populated_and_empty_states(tmp_path: Path) -> None
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=25,
             check=False,
         )

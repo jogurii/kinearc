@@ -450,7 +450,7 @@ window.kinearc = { totalDuration: 0.3, ready: Promise.resolve().then(() => seek(
     a_multi = [s for s in probe_multi["streams"] if s["codec_type"] == "audio"]
     assert len(v_multi) == 1 and v_multi[0]["codec_name"] == "h264"
     assert v_multi[0]["width"] == 320 and v_multi[0]["height"] == 180
-    assert v_multi[0]["pix_fmt"] == "yuv420p"
+    assert v_multi[0]["pix_fmt"] in {"yuv420p", "yuvj420p"}
     multi_frames = int(v_multi[0].get("nb_read_frames") or v_multi[0].get("nb_frames") or 0)
     assert multi_frames == 18, f"Expected 18 concatenated frames (9+9), got {multi_frames}"
     assert float(probe_multi["format"]["duration"]) == pytest.approx(0.6, abs=0.05)

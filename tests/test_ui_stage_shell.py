@@ -664,6 +664,8 @@ def test_optional_headless_browser_dom_smoke(tmp_path: Path) -> None:
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=20,
             check=False,
         )
