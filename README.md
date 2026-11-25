@@ -81,9 +81,10 @@ kinearc/
 │   ├── track_objects.py              # Zero-jitter Optical Flow, rotation, plateau & particle LUTs
 │   ├── measure_shapes_colors.py      # Radial circle/ring profiler, card bop & HEX palette sampler
 │   ├── verify_motion_diff.py         # Closed-loop MAE, worst_frames, Flow & --check-loop audit
-│   ├── audio_mix.py                  # Auto-ducking BGM mixer, SFX sync & silence pause-cutter
-│   ├── auto_cue.py                   # Automated tactile SFX cue generator (`kinearc_cli.py autocue`)
-│   ├── build_sfx_pack.py             # Acoustic-modeled tactile foley & groove BGM generator
+│   ├── audio_mix.py                  # Spatial BGM/SFX compositor, room IR & pause-cutter
+│   ├── auto_cue.py                   # Scene-aware material/mood SFX cue generator (`autocue`)
+│   ├── build_sfx_pack.py             # Multi-style modal/waveguide SFX & remaker (`sfx-pack`)
+│   ├── extract_audio_style.py        # Universal reference audio analyzer, stem slicer & remaker (`extract-audio`)
 │   ├── review_viewer.py              # Backward-compatible CLI/module wrapper for kinearc_ui.py
 │   └── ui/                           # Zero-build browser ES modules (index.html, styles.css, *.js)
 ├── assets/                           # Bundled tactile SFX pack (`sfx/`) & WebGL2 craft runtime (`craft/`)

@@ -33,6 +33,8 @@ MIN_NODE_MAJOR = 24
 
 PASSTHROUGH_SCRIPTS: dict[str, tuple[str, str, str]] = {
     "extract": ("extract_full_motion.py", "extract_full_motion", "Extract full-FPS frames, trails, and scene cuts"),
+    "extract-audio": ("extract_audio_style.py", "extract_audio_style", "Analyze any reference audio, slice onset stems, and remake custom SFX packs"),
+    "sfx-pack": ("build_sfx_pack.py", "build_sfx_pack", "Build bundled or profile-matched organic SFX packs"),
     "track": ("track_objects.py", "track_objects", "Track optical flow, rotation, plateaus, and particles"),
     "measure": ("measure_shapes_colors.py", "measure_shapes_colors", "Measure geometry, card bop scale, and HEX colors"),
     "verify": ("verify_motion_diff.py", "verify_motion_diff", "Verify motion MAE/PSNR, jitter, blur, and loop seam"),

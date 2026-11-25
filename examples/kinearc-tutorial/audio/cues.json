@@ -2,131 +2,233 @@
   {
     "file": "sfx/harmonic_swell.wav",
     "time": 0.21,
-    "volume": 0.76
+    "volume": 0.76,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/ui_tap.wav",
     "time": 1.2,
-    "volume": 0.7
+    "volume": 0.7,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/switch_latch.wav",
     "time": 2.05,
-    "volume": 0.82
+    "volume": 0.82,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/glass_ping.wav",
     "time": 2.35,
-    "volume": 0.76
+    "volume": 0.76,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/air_swish_fast.wav",
     "time": 4.59,
-    "volume": 0.72
+    "volume": 0.72,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/harmonic_swell.wav",
     "time": 5.21,
-    "volume": 0.78
+    "volume": 0.78,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/crystal_glint.wav",
     "time": 6.1,
-    "volume": 0.76
+    "volume": 0.76,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/ui_tap.wav",
     "time": 7.2,
-    "volume": 0.74
+    "volume": 0.74,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/glass_ping.wav",
     "time": 7.8,
-    "volume": 0.78
+    "volume": 0.78,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/air_swish_fast.wav",
     "time": 9.12,
-    "volume": 0.72
+    "volume": 0.72,
+    "room": 0.05,
+    "tilt_db": 2.2,
+    "cutoff_hz": 17200.0,
+    "pitch": 1.02
   },
   {
     "file": "sfx/crystal_glint.wav",
     "time": 10.0,
-    "volume": 0.78
+    "volume": 0.78,
+    "room": 0.05,
+    "tilt_db": 2.2,
+    "cutoff_hz": 17200.0,
+    "pitch": 1.02
   },
   {
     "file": "sfx/switch_latch.wav",
     "time": 10.02,
-    "volume": 0.8
+    "volume": 0.8,
+    "room": 0.05,
+    "tilt_db": 2.2,
+    "cutoff_hz": 17200.0,
+    "pitch": 1.02
   },
   {
-    "file": "sfx/crystal_glint.wav",
+    "file": "sfx/crystal_glint_02.wav",
     "time": 11.1,
-    "volume": 0.78
+    "volume": 0.78,
+    "room": 0.05,
+    "tilt_db": 2.2,
+    "cutoff_hz": 17200.0,
+    "pitch": 1.02
   },
   {
-    "file": "sfx/switch_latch.wav",
+    "file": "sfx/switch_latch_02.wav",
     "time": 11.12,
-    "volume": 0.8
+    "volume": 0.8,
+    "room": 0.05,
+    "tilt_db": 2.2,
+    "cutoff_hz": 17200.0,
+    "pitch": 1.02
   },
   {
     "file": "sfx/crystal_glint.wav",
     "time": 12.2,
-    "volume": 0.8
+    "volume": 0.8,
+    "room": 0.05,
+    "tilt_db": 2.2,
+    "cutoff_hz": 17200.0,
+    "pitch": 1.02
   },
   {
     "file": "sfx/bloom_chime.wav",
     "time": 12.23,
-    "volume": 0.84
+    "volume": 0.84,
+    "room": 0.05,
+    "tilt_db": 2.2,
+    "cutoff_hz": 17200.0
   },
   {
     "file": "sfx/air_swish_fast.wav",
     "time": 13.62,
-    "volume": 0.72
+    "volume": 0.72,
+    "room": 0.16,
+    "tilt_db": -1.8,
+    "cutoff_hz": 7800.0,
+    "sub_boost": 1.24,
+    "pitch": 0.95
   },
   {
     "file": "sfx/scrubber_tick.wav",
     "time": 14.35,
-    "volume": 0.55
+    "volume": 0.55,
+    "room": 0.16,
+    "tilt_db": -1.8,
+    "cutoff_hz": 7800.0,
+    "sub_boost": 1.24,
+    "pitch": 0.95
   },
   {
-    "file": "sfx/scrubber_tick.wav",
+    "file": "sfx/scrubber_tick_02.wav",
     "time": 14.57,
-    "volume": 0.48
+    "volume": 0.48,
+    "room": 0.16,
+    "tilt_db": -1.8,
+    "cutoff_hz": 7800.0,
+    "sub_boost": 1.24,
+    "pitch": 0.95
   },
   {
     "file": "sfx/scrubber_tick.wav",
     "time": 14.79,
-    "volume": 0.48
+    "volume": 0.48,
+    "room": 0.16,
+    "tilt_db": -1.8,
+    "cutoff_hz": 7800.0,
+    "sub_boost": 1.24,
+    "pitch": 0.95
   },
   {
-    "file": "sfx/scrubber_tick.wav",
+    "file": "sfx/scrubber_tick_02.wav",
     "time": 15.01,
-    "volume": 0.48
+    "volume": 0.48,
+    "room": 0.16,
+    "tilt_db": -1.8,
+    "cutoff_hz": 7800.0,
+    "sub_boost": 1.24,
+    "pitch": 0.95
   },
   {
     "file": "sfx/scrubber_tick.wav",
     "time": 15.23,
-    "volume": 0.48
+    "volume": 0.48,
+    "room": 0.16,
+    "tilt_db": -1.8,
+    "cutoff_hz": 7800.0,
+    "sub_boost": 1.24,
+    "pitch": 0.95
   },
   {
-    "file": "sfx/scrubber_tick.wav",
+    "file": "sfx/scrubber_tick_02.wav",
     "time": 15.45,
-    "volume": 0.55
+    "volume": 0.55,
+    "room": 0.16,
+    "tilt_db": -1.8,
+    "cutoff_hz": 7800.0,
+    "sub_boost": 1.24,
+    "pitch": 0.95
   },
   {
     "file": "sfx/switch_latch.wav",
     "time": 16.05,
-    "volume": 0.82
+    "volume": 0.82,
+    "room": 0.16,
+    "tilt_db": -1.8,
+    "cutoff_hz": 7800.0,
+    "sub_boost": 1.24,
+    "pitch": 0.95
   },
   {
     "file": "sfx/bloom_chime.wav",
     "time": 16.93,
-    "volume": 0.8
+    "volume": 0.8,
+    "room": 0.16,
+    "tilt_db": -1.8,
+    "cutoff_hz": 7800.0,
+    "sub_boost": 1.24
   },
   {
     "file": "sfx/analog_chord.wav",
     "time": 17.35,
-    "volume": 0.84
+    "volume": 0.84,
+    "room": 0.16,
+    "tilt_db": -1.8,
+    "cutoff_hz": 7800.0,
+    "sub_boost": 1.24
   }
 ]

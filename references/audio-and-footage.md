@@ -16,15 +16,23 @@ Instead of manually balancing volume automation curves in a GUI editor, render y
 * **Frame-Accurate SFX Placement (`--sfx cues.json`):** Places timestamped sound effects (`whoosh`, `pop`, `click`, `impact`) at exact second offsets via `adelay` without distorting peaks (`alimiter=limit=0.95`).
 * **Duration Lock:** Pads trailing silence cleanly so shorter voiceovers or SFX tracks never truncate your final MP4 video length.
 
-### SFX Cues Schema (`cues.json`)
+### SFX Cues Schema (`cues.json`) & Scene Matching
 ```json
 [
-  { "file": "sfx/impact.wav", "time": 0.00, "volume": 0.90 },
-  { "file": "sfx/whoosh.wav", "time": 2.45, "volume": 0.75 },
-  { "file": "sfx/pop.wav",    "time": 6.10, "volume": 0.85 }
+  { "file": "sfx/sub_impact.wav", "time": 0.00, "volume": 0.90, "pan": 0.0, "room": 0.16, "tilt_db": -2.2, "cutoff_hz": 7800.0, "sub_boost": 1.24 },
+  { "file": "sfx/air_swish_fast.wav", "time": 2.45, "volume": 0.75, "pan": -0.35, "room": 0.05, "tilt_db": 1.8, "cutoff_hz": 17200.0 },
+  { "file": "sfx/ui_tap_02.wav", "time": 6.10, "volume": 0.85, "pitch": 1.02 }
 ]
 ```
-*(Tip: Derive `"time"` directly from your scene/animation constants `frame / fps` so sound lands on the exact transition frame.)*
+*(Tip: `python scripts/kinearc_cli.py autocue` automatically analyzes each scene HTML's material `crystal`/`paper-wood`/`metal`/`deep-space`, luminance, and color temperature — or reads `// @scene-audio material=... temp=... space=...` — to populate per-cue `room`, `tilt_db`, `cutoff_hz`, and `sub_boost`.)*
+
+### Reference Audio Extractor & SFX Pack Remaker (`extract-audio`)
+Extract the spectral DNA, dynamic silence ratio, isolated onset stems, and a custom copyright-clean remade SFX pack from any reference video or audio file:
+```bash
+python "<skill_dir>/scripts/kinearc_cli.py" extract-audio --input reference.mp4 --out_dir .kinearc_analysis/audio
+# Optional: switch bundled SFX pack style directly (airy-clean, tactile-wood, crisp-glass, cinematic-sub)
+python "<skill_dir>/scripts/kinearc_cli.py" sfx-pack --style airy-clean
+```
 
 ### Command Usage
 ```bash

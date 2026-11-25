@@ -2,131 +2,217 @@
   {
     "file": "sfx/harmonic_swell.wav",
     "time": 0.41,
-    "volume": 0.78
+    "volume": 0.78,
+    "room": 0.05,
+    "tilt_db": 2.2,
+    "cutoff_hz": 17200.0
   },
   {
     "file": "sfx/crystal_glint.wav",
     "time": 0.85,
-    "volume": 0.72
+    "volume": 0.72,
+    "room": 0.05,
+    "tilt_db": 2.2,
+    "cutoff_hz": 17200.0,
+    "pitch": 1.02
   },
   {
     "file": "sfx/ui_tap.wav",
     "time": 1.45,
-    "volume": 0.7
+    "volume": 0.7,
+    "room": 0.05,
+    "tilt_db": 2.2,
+    "cutoff_hz": 17200.0,
+    "pitch": 1.02
   },
   {
     "file": "sfx/crystal_glint.wav",
     "time": 2.58,
-    "volume": 0.72
+    "volume": 0.72,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/key_clack_01.wav",
     "time": 2.9,
-    "volume": 0.58
+    "volume": 0.58,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/key_clack_02.wav",
     "time": 3.034,
-    "volume": 0.53
+    "volume": 0.53,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/key_clack_03.wav",
     "time": 3.188,
-    "volume": 0.6
+    "volume": 0.6,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/key_clack_01.wav",
     "time": 3.316,
-    "volume": 0.55
+    "volume": 0.55,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/key_clack_02.wav",
     "time": 3.465,
-    "volume": 0.57
+    "volume": 0.57,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/key_clack_03.wav",
     "time": 3.593,
-    "volume": 0.52
+    "volume": 0.52,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/harmonic_swell.wav",
     "time": 3.78,
-    "volume": 0.78
+    "volume": 0.78,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/ui_tap.wav",
     "time": 4.15,
-    "volume": 0.7
+    "volume": 0.7,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
-    "file": "sfx/ui_tap.wav",
+    "file": "sfx/ui_tap_02.wav",
     "time": 4.38,
-    "volume": 0.7
+    "volume": 0.7,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/glass_ping.wav",
     "time": 4.62,
-    "volume": 0.74
+    "volume": 0.74,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/crystal_glint.wav",
     "time": 5.62,
-    "volume": 0.72
+    "volume": 0.72,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/ui_tap.wav",
     "time": 6.24,
-    "volume": 0.7
+    "volume": 0.7,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
-    "file": "sfx/crystal_glint.wav",
+    "file": "sfx/crystal_glint_02.wav",
     "time": 6.86,
-    "volume": 0.72
+    "volume": 0.72,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/glass_ping.wav",
     "time": 7.48,
-    "volume": 0.74
+    "volume": 0.74,
+    "room": 0.055,
+    "tilt_db": 0.9,
+    "cutoff_hz": 14800.0
   },
   {
     "file": "sfx/portal_drop.wav",
     "time": 8.205,
-    "volume": 0.86
+    "volume": 0.86,
+    "room": 0.16,
+    "tilt_db": -2.2,
+    "cutoff_hz": 7800.0,
+    "sub_boost": 1.24
   },
   {
     "file": "sfx/harmonic_swell.wav",
     "time": 8.91,
-    "volume": 0.78
+    "volume": 0.78,
+    "room": 0.16,
+    "tilt_db": -2.2,
+    "cutoff_hz": 7800.0,
+    "sub_boost": 1.24
   },
   {
     "file": "sfx/warm_riser.wav",
     "time": 9.4,
-    "volume": 0.65
+    "volume": 0.65,
+    "room": 0.16,
+    "tilt_db": -2.2,
+    "cutoff_hz": 7800.0,
+    "sub_boost": 1.24
   },
   {
     "file": "sfx/bloom_chime.wav",
     "time": 10.03,
-    "volume": 0.82
+    "volume": 0.82,
+    "room": 0.16,
+    "tilt_db": -2.2,
+    "cutoff_hz": 7800.0,
+    "sub_boost": 1.24
   },
   {
     "file": "sfx/ui_tap.wav",
     "time": 10.78,
-    "volume": 0.7
+    "volume": 0.7,
+    "room": 0.05,
+    "tilt_db": 2.2,
+    "cutoff_hz": 17200.0,
+    "pitch": 1.02
   },
   {
     "file": "sfx/crystal_glint.wav",
     "time": 11.18,
-    "volume": 0.72
+    "volume": 0.72,
+    "room": 0.05,
+    "tilt_db": 2.2,
+    "cutoff_hz": 17200.0,
+    "pitch": 1.02
   },
   {
     "file": "sfx/analog_chord.wav",
     "time": 11.6,
-    "volume": 0.86
+    "volume": 0.86,
+    "room": 0.05,
+    "tilt_db": 2.2,
+    "cutoff_hz": 17200.0
   },
   {
     "file": "sfx/glass_ping.wav",
     "time": 12.05,
-    "volume": 0.74
+    "volume": 0.74,
+    "room": 0.05,
+    "tilt_db": 2.2,
+    "cutoff_hz": 17200.0
   }
 ]

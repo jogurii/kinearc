@@ -26,6 +26,7 @@ EXPECTED_SCRIPTS = {
     "audio_mix.py",
     "auto_cue.py",
     "build_sfx_pack.py",
+    "extract_audio_style.py",
     "extract_full_motion.py",
     "kinearc_cli.py",
     "kinearc_ui.py",

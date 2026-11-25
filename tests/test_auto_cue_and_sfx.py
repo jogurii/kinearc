@@ -377,6 +377,205 @@ def test_chamfer_slab_mesh_is_watertight_manifold() -> None:
     assert proc.returncode == 0, proc.stderr + proc.stdout
 
 
+def test_multistyle_organic_sfx_pack_and_spatial_room_mix(tmp_path: Path) -> None:
+    if str(SCRIPTS_DIR) not in sys.path:
+        sys.path.insert(0, str(SCRIPTS_DIR))
+    import audio_mix
+    import auto_cue
+    import build_sfx_pack
+    import numpy as np
+
+    # 1. All 3 organic acoustic styles generate finite stereo 44.1kHz WAVs without warnings
+    for style_name in build_sfx_pack.VALID_STYLES:
+        out_style_dir = tmp_path / f"pack_{style_name}"
+        res = build_sfx_pack.build_sfx_pack(out_style_dir, style=style_name)
+        assert res["style"] == style_name
+        assert len(res["files"]) == 24
+        cat = json.loads(Path(res["catalog"]).read_text(encoding="utf-8"))
+        assert cat.get("style") == style_name
+        # Spot check bgm_ambient & ui_tap stereo & finite RMS
+        for check_name in ("ui_tap.wav", "bgm_groove.wav", "bgm_ambient.wav"):
+            wav_p = out_style_dir / check_name
+            with wave.open(str(wav_p), "rb") as wf:
+                assert wf.getnchannels() == 2
+                assert wf.getframerate() == 44100
+                data = np.frombuffer(wf.readframes(wf.getnframes()), dtype="<i2").astype(np.float64)
+                assert np.all(np.isfinite(data))
+                assert float(np.sqrt(np.mean(data ** 2))) > 200.0
+
+    # 2. Auto-cue cycles round-robin variants on repeated events (tap -> ui_tap, ui_tap_02, ui_tap_03)
+    s_rr = tmp_path / "rr_scene.html"
+    s_rr.write_text(
+        """<!doctype html><script>
+        window.TOTAL = 2.0;
+        // @cue 0.20 tap
+        // @cue 0.60 tap
+        // @cue 1.00 tap pan=-0.5
+        </script>""",
+        encoding="utf-8",
+    )
+    rr_cues, _ = auto_cue.extract_scene_cues(s_rr)
+    assert len({c["file"] for c in rr_cues}) == 3
+    assert rr_cues[2].get("pan") == -0.5
+
+    # 3. Spatial pan directs dominant energy to panned ear & room convolution adds tail vs dry
+    tap_wav = str(REPO_ROOT / "assets" / "sfx" / "ui_tap.wav")
+    bus_left = tmp_path / "left.wav"
+    audio_mix._precomposite_sfx_bus(
+        [{"file": tap_wav, "time": 0.05, "volume": 0.85, "pan": -0.95}],
+        0.5,
+        str(bus_left),
+        humanize=False,
+        room_wet=0.0,
+    )
+    with wave.open(str(bus_left), "rb") as wf:
+        arr = np.frombuffer(wf.readframes(wf.getnframes()), dtype="<i2").reshape(-1, 2).astype(np.float64)
+        l_rms = float(np.sqrt(np.mean(arr[:, 0] ** 2)))
+        r_rms = float(np.sqrt(np.mean(arr[:, 1] ** 2)))
+        assert l_rms > r_rms * 1.25
+
+    bus_wet = tmp_path / "wet.wav"
+    audio_mix._precomposite_sfx_bus(
+        [{"file": tap_wav, "time": 0.05, "volume": 0.85, "pan": 0.0}],
+        0.5,
+        str(bus_wet),
+        humanize=False,
+        room_wet=0.16,
+    )
+    with wave.open(str(bus_wet), "rb") as wfw, wave.open(str(bus_left), "rb") as wfd:
+        aw = np.frombuffer(wfw.readframes(wfw.getnframes()), dtype="<i2").reshape(-1, 2).astype(np.float64)
+        tail_rms = float(np.sqrt(np.mean(aw[int(0.14 * 48000) : int(0.24 * 48000)] ** 2)))
+        assert tail_rms > 1.0
+
+
+def test_extract_audio_style_and_per_scene_material_matching(tmp_path: Path) -> None:
+    if str(SCRIPTS_DIR) not in sys.path:
+        sys.path.insert(0, str(SCRIPTS_DIR))
+    import audio_mix
+    import auto_cue
+    import extract_audio_style
+    import numpy as np
+
+    # 1. Universal reference audio extractor works on any clean WAV/video input (no hardcoding)
+    sr = 48000
+    dur = 2.4
+    n = int(sr * dur)
+    t = np.arange(n, dtype=np.float64) / sr
+    sig = np.zeros((n, 2), dtype=np.float64)
+    # Place 3 distinct transient events: crisp air burst at 0.25s, sub drop at 0.90s, chime at 1.65s
+    rng = np.random.default_rng(77)
+    s0 = int(0.25 * sr)
+    k0 = int(0.06 * sr)
+    burst = rng.standard_normal(k0)
+    freqs0 = np.fft.rfftfreq(k0, 1.0 / sr)
+    hi_burst = np.fft.irfft(np.fft.rfft(burst) * (freqs0 >= 4500.0), n=k0) * np.exp(-np.arange(k0) / (0.01 * sr))
+    hi_burst /= float(np.max(np.abs(hi_burst))) or 1.0
+    sig[s0 : s0 + k0, :] += (hi_burst * 0.65)[:, None]
+
+    s1 = int(0.90 * sr)
+    k1 = int(0.28 * sr)
+    t1 = np.arange(k1) / sr
+    sub_drop = np.sin(2.0 * np.pi * 55.0 * t1) * np.exp(-t1 / 0.08) * 0.72
+    sig[s1 : s1 + k1, :] += sub_drop[:, None]
+
+    s2 = int(1.65 * sr)
+    k2 = int(0.35 * sr)
+    t2 = np.arange(k2) / sr
+    chime = (0.5 * np.sin(2.0 * np.pi * 1320.0 * t2) + 0.35 * np.sin(2.0 * np.pi * 5280.0 * t2)) * np.exp(-t2 / 0.10) * 0.60
+    sig[s2 : s2 + k2, :] += chime[:, None]
+
+    ref_wav = tmp_path / "custom_ref.wav"
+    extract_audio_style._write_stereo_wav(ref_wav, sig, sr=sr)
+
+    out_extract = tmp_path / "extracted_pack"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-B",
+            str(SCRIPTS_DIR / "kinearc_cli.py"),
+            "extract-audio",
+            "--input",
+            str(ref_wav),
+            "--out_dir",
+            str(out_extract),
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr + proc.stdout
+    prof = json.loads((out_extract / "audio_profile.json").read_text(encoding="utf-8"))
+    assert prof["has_audio"] is True
+    assert prof["recommended_bgm_mode"] == "none"
+    assert len(prof["extracted_stems"]) >= 2
+    assert (out_extract / "extracted_cues.json").is_file()
+    assert prof["remake_file_count"] == 24
+    assert (out_extract / "sfx" / "catalog.json").is_file()
+    assert (out_extract / "sfx" / "ui_tap.wav").is_file()
+
+    # 2. Per-scene visual analyzer maps bright cool crystal vs dark obsidian deep-space distinctly
+    light_crystal_scene = tmp_path / "scene_light.html"
+    light_crystal_scene.write_text(
+        """<!doctype html><style>body{background:#f6f7fb}</style><script>
+        const m = createCrystalMesh(8, 0.8, 2.0, 0.2);
+        drawCraftBackdrop(ctx, W, H, t, { theme: "pearl", coolPool: "rgba(56, 189, 248, 0.20)" });
+        // @cue 0.40 tap
+        </script>""",
+        encoding="utf-8",
+    )
+    dark_portal_scene = tmp_path / "scene_dark.html"
+    dark_portal_scene.write_text(
+        """<!doctype html><style>body{background:#05040c}</style><script>
+        const m = createTorusKnotMesh(1.0, 0.2);
+        drawCraftBackdrop(ctx, W, H, t, { theme: "midnight", warmPool: "rgba(180, 90, 220, 0.22)" });
+        drawPortalFlash(ctx, W, H, t);
+        // @cue 0.40 tap
+        </script>""",
+        encoding="utf-8",
+    )
+    explicit_override = tmp_path / "scene_override.html"
+    explicit_override.write_text(
+        """<!doctype html><script>
+        // @scene-audio material=metal temp=cool space=medium tilt_db=1.4 room=0.09
+        // @cue 0.20 tap
+        </script>""",
+        encoding="utf-8",
+    )
+
+    cues_light, _ = auto_cue.extract_scene_cues(light_crystal_scene)
+    cues_dark, _ = auto_cue.extract_scene_cues(dark_portal_scene)
+    cues_ovr, _ = auto_cue.extract_scene_cues(explicit_override)
+
+    assert cues_light[0]["tilt_db"] > 0.5
+    assert cues_light[0]["cutoff_hz"] >= 15000.0
+    assert cues_light[0]["room"] < cues_dark[0]["room"]
+    assert cues_dark[0]["tilt_db"] < -1.0
+    assert cues_dark[0]["cutoff_hz"] <= 9000.0
+    assert cues_dark[0]["sub_boost"] > 1.1
+    assert cues_ovr[0]["tilt_db"] == 1.4 and cues_ovr[0]["room"] == 0.09
+
+    # 3. Audio mixer applies per-cue tilt/cutoff/sub_boost: dark cue outputs measurably stronger low end & softer highs
+    tap_file = str(REPO_ROOT / "assets" / "sfx" / "ui_tap.wav")
+    wav_bright = tmp_path / "mix_bright.wav"
+    wav_dark = tmp_path / "mix_dark.wav"
+    audio_mix._precomposite_sfx_bus([{**cues_light[0], "file": tap_file}], 0.5, str(wav_bright), humanize=False)
+    audio_mix._precomposite_sfx_bus([{**cues_dark[0], "file": tap_file}], 0.5, str(wav_dark), humanize=False)
+
+    with wave.open(str(wav_bright), "rb") as wb, wave.open(str(wav_dark), "rb") as wd:
+        ab = np.frombuffer(wb.readframes(wb.getnframes()), dtype="<i2").reshape(-1, 2).mean(axis=1).astype(np.float64)
+        ad = np.frombuffer(wd.readframes(wd.getnframes()), dtype="<i2").reshape(-1, 2).mean(axis=1).astype(np.float64)
+        fb = np.fft.rfftfreq(len(ab), 1.0 / 48000)
+        fd = np.fft.rfftfreq(len(ad), 1.0 / 48000)
+        pb = np.abs(np.fft.rfft(ab)) ** 2
+        pd = np.abs(np.fft.rfft(ad)) ** 2
+        hi_ratio_b = float(np.sum(pb[fb >= 4000.0]) / (np.sum(pb) + 1e-9))
+        hi_ratio_d = float(np.sum(pd[fd >= 4000.0]) / (np.sum(pd) + 1e-9))
+        assert hi_ratio_b > hi_ratio_d * 1.4
+
+
+
+
 
 
 
